@@ -8,7 +8,7 @@ struct Record {
 
 int main() {
     Property property(
-            "./index/",
+            "./test/index_by_id/",
             "metadata.json",
             "index.dat",
             get_expected_index_page_capacity<int32>(),
@@ -16,10 +16,10 @@ int main() {
             true
             );
 
-    std::function<int32(Record&)> get_indexed_field = [&](Record& record) {
+    std::function<int32(Record&)> get_indexed_field = [](Record& record) {
         return record.id;
     };
 
     BPlusTree<int32, Record> tree(property, get_indexed_field);
-    return 0;
+    return EXIT_SUCCESS;
 }

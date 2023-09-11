@@ -13,7 +13,8 @@ add_executable(b_plus_tree main.cpp
         include/pages.h
         utils/buffer_size.h
         include/property.h
-        utils/file_utils.h)
+        utils/file_utils.h
+        utils/error_handler.h)
 
 
 target_link_libraries(

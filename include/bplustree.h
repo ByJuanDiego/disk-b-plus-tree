@@ -12,11 +12,6 @@
 #include "property.h"
 #include "file_utils.h"
 
-const std::string KEY_NOT_FOUND = "Key not found";
-const std::string REPEATED_KEY = "Repeated key";
-const std::string CREATE_DIR_ERROR = "Error creating directory";
-const std::string CREATE_FILE_ERROR = "Error creating file";
-
 
 template <
     typename KeyType,
@@ -66,7 +61,7 @@ private:
     int64 locate_data_page(KeyType& key) {
         switch (metadata_json[ROOT_STATUS].asInt()) {
             case Root::empty: {
-                throw std::runtime_error(KEY_NOT_FOUND);
+                throw KeyNotFound();
             }
             case Root::points_to_data: {
                 return metadata_json[SEEK_ROOT].asInt();
@@ -94,21 +89,21 @@ private:
         if (!directory_exists(metadata_json[DIRECTORY_PATH].asString())) {
             bool successfully_created = create_directory(metadata_json[DIRECTORY_PATH].asString());
             if (!successfully_created) {
-                throw std::runtime_error(CREATE_DIR_ERROR);
+                throw CreateDirectoryError();
             }
         }
 
         // then, opens the metadata file and writes the JSON metadata.
         open_metadata(std::ios::out);
         if (!metadata_file.is_open()) {
-            throw std::runtime_error(CREATE_FILE_ERROR);
+            throw CreateFileError();
         }
         save_metadata();
 
         // finally, creates an empty file for the B+
         open_index(std::ios::out);
         if (!b_plus_file.is_open()) {
-            throw std::runtime_error(CREATE_FILE_ERROR);
+            throw CreateFileError();
         }
         b_plus_file.close();
     }
@@ -151,7 +146,7 @@ public:
                 }
                 if (greater_to(get_indexed_field(data_page.records[i])), key) {
                     if (located_records.empty()) {
-                        throw std::runtime_error(KEY_NOT_FOUND);
+                        throw KeyNotFound();
                     }
                     b_plus_file.close();
                     return located_records;
