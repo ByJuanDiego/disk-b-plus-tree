@@ -11,14 +11,30 @@
 #include <sstream>
 #include <cstring>
 
-
 #include "buffer_size.h"
 
 using int64 = int64_t;
 using int32 = int32_t;
 
-const int LEAF_NULL_POINTER = -1;
+const int NULL_PAGE = -1;
 const unsigned int BUFFER_SIZE = get_buffer_size();
+
+
+template <typename KeyType>
+int32 get_expected_index_page_capacity() {
+    return std::floor(
+            static_cast<double>(BUFFER_SIZE - 2 * sizeof(int32)  - sizeof(int64) - sizeof(bool))  /
+            (sizeof(int64) + sizeof(KeyType))
+    );
+}
+
+template <typename RecordType>
+int32 get_expected_data_page_capacity() {
+    return std::floor(
+            static_cast<double>(BUFFER_SIZE - 2 * sizeof(int64) - 2 * sizeof(int32)) /
+            (sizeof(RecordType))
+    );
+}
 
 template <typename KeyType>
 struct IndexPage {
@@ -43,7 +59,7 @@ struct IndexPage {
         return 2 * sizeof(int32) + capacity * sizeof(KeyType) + (capacity + 1) * sizeof(int64) + sizeof(bool);
     }
 
-    void write(std::fstream& file) {
+    void write(std::ofstream & file) {
         std::stringstream ss;
         ss.write((char *) &capacity, sizeof(int32));
         ss.write((char *) &num_keys, sizeof(int32));
@@ -58,7 +74,7 @@ struct IndexPage {
         file.write(ss.str().c_str(), size_of());
     }
 
-    void read(std::fstream& file) {
+    void read(std::ifstream & file) {
         char* buffer = new char[size_of()];
         file.read(buffer, size_of());
 
@@ -81,7 +97,17 @@ struct IndexPage {
         memcpy((char *) &points_to_leaf, buffer + offset, sizeof(bool));
         delete [] buffer;
     }
+
+
+    void push_front(KeyType& key) {
+        // TODO
+    }
+
+    void push_back(KeyType& key) {
+        // TODO
+    }
 };
+
 
 template <typename RecordType>
 struct DataPage {
@@ -92,7 +118,7 @@ struct DataPage {
     RecordType* records;
 
     explicit DataPage(int32 records_capacity)
-    : capacity(records_capacity), num_records(0), next_leaf(LEAF_NULL_POINTER), prev_leaf(LEAF_NULL_POINTER) {
+    : capacity(records_capacity), num_records(0), next_leaf(NULL_PAGE), prev_leaf(NULL_PAGE) {
         records = new RecordType[records_capacity];
     }
 
@@ -100,31 +126,22 @@ struct DataPage {
         delete [] records;
     }
 
-
-    void write(std::fstream& file) {
-
+    void write(std::ofstream & file) {
+        // TODO
     }
 
-    void read(std::fstream& file) {
+    void read(std::ifstream & file) {
+        // TODO
+    }
 
+    void push_front(RecordType& record) {
+        // TODO
+    }
+
+    void push_back(RecordType& record) {
+        // TODO
     }
 };
 
-
-template <typename KeyType>
-int32 get_expected_index_page_capacity() {
-    return std::floor(
-            static_cast<double>(BUFFER_SIZE - 2 * sizeof(int32) - sizeof(bool) - sizeof(int64))  /
-            (sizeof(int64) + sizeof(KeyType))
-            );
-}
-
-template <typename RecordType>
-int32 get_expected_data_page_capacity() {
-    return std::floor(
-            static_cast<double>(BUFFER_SIZE - 2* sizeof(int64) - 2 * sizeof(int32)) /
-            (sizeof(RecordType))
-            );
-}
 
 #endif //B_PLUS_TREE_PAGES_H

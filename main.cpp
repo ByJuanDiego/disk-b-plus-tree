@@ -1,5 +1,4 @@
 #include "bplustree.h"
-#include <iostream>
 
 struct Record {
     int32 id;
@@ -8,9 +7,19 @@ struct Record {
 };
 
 int main() {
-    std::cout << get_expected_index_page_capacity<int>() << std::endl;
-    std::cout << get_expected_data_page_capacity<Record>() << std::endl;
+    Property property(
+            "./index/",
+            "metadata.json",
+            "index.dat",
+            get_expected_index_page_capacity<int32>(),
+            get_expected_data_page_capacity<Record>(),
+            true
+            );
 
-    std::cout << "Hello, World!" << std::endl;
+    std::function<int32(Record&)> get_indexed_field = [&](Record& record) {
+        return record.id;
+    };
+
+    BPlusTree<int32, Record> tree(property, get_indexed_field);
     return 0;
 }

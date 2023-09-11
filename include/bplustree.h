@@ -12,12 +12,11 @@
 #include "property.h"
 #include "file_utils.h"
 
-
 const std::string KEY_NOT_FOUND = "Key not found";
 const std::string REPEATED_KEY = "Repeated key";
 const std::string CREATE_DIR_ERROR = "Error creating directory";
 const std::string CREATE_FILE_ERROR = "Error creating file";
-const int ROOT_PAGE = 0;
+
 
 template <
     typename KeyType,
@@ -70,18 +69,18 @@ private:
                 throw std::runtime_error(KEY_NOT_FOUND);
             }
             case Root::points_to_data: {
-                return ROOT_PAGE;
+                return metadata_json[SEEK_ROOT].asInt();
             }
             case Root::points_to_index: {
                 // iterates through the index pages and descends the B+ in order to locate the first data page
                 // that may contain the key to search.
-                int64 seek_page = ROOT_PAGE;
+                int64 seek_page = metadata_json[SEEK_ROOT].asInt();
                 IndexPage<KeyType> index_page(metadata_json[INDEX_PAGE_CAPACITY]);
                 do {
                     b_plus_file.seekg(seek_page);
                     index_page.read(b_plus_file);
-                    int i = 0;
-                    for (; (i < index_page.num_keys) && greater_to(key, index_page.keys[i]); ++i);
+                    int i;
+                    for (i = 0; (i < index_page.num_keys) && greater_to(key, index_page.keys[i]); ++i);
                     seek_page = index_page.children[i];
                 } while (!index_page.points_to_leaf);
 
@@ -90,7 +89,7 @@ private:
         }
     }
 
-    BPlusTree() {
+    void create_index() {
         // first verifies if the directory path exists and creates it if not exists.
         if (!directory_exists(metadata_json[DIRECTORY_PATH].asString())) {
             bool successfully_created = create_directory(metadata_json[DIRECTORY_PATH].asString());
@@ -124,7 +123,7 @@ public:
         // if the metadata file cannot be opened, creates the index
         if (!metadata_file.good()) {
             b_plus_file.close();
-            BPlusTree();
+            create_index();
             return;
         }
         // otherwise, just loads the metadata in RAM
@@ -133,7 +132,7 @@ public:
     }
 
     void insert(RecordType& record) {
-
+        // TODO
     }
 
     std::vector<RecordType> search(KeyType& key) {
@@ -160,7 +159,7 @@ public:
                 located_records.push_back(data_page.records[i]);
             }
             seek_page = data_page.next_leaf;
-        } while (seek_page != LEAF_NULL_POINTER);
+        } while (seek_page != NULL_PAGE);
 
         b_plus_file.close();
         return located_records;
@@ -187,14 +186,14 @@ public:
                 located_records.push_back(data_page.records[i]);
             }
             seek_page = data_page.next_leaf;
-        } while (seek_page != LEAF_NULL_POINTER);
+        } while (seek_page != NULL_PAGE);
 
         b_plus_file.close();
         return located_records;
     }
 
     void remove(KeyType& key) {
-
+        // TODO
     }
 };
 
