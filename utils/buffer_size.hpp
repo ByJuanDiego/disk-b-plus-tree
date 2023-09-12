@@ -2,8 +2,8 @@
 // Created by juandiego on 9/7/23.
 //
 
-#ifndef B_PLUS_TREE_BUFFER_SIZE_H
-#define B_PLUS_TREE_BUFFER_SIZE_H
+#ifndef B_PLUS_TREE_BUFFER_SIZE_HPP
+#define B_PLUS_TREE_BUFFER_SIZE_HPP
 
 #if defined(_WIN64)
 #include <windows.h>
@@ -25,4 +25,4 @@ unsigned long get_buffer_size() {
 #endif
 }
 
-#endif //B_PLUS_TREE_BUFFER_SIZE_H
+#endif //B_PLUS_TREE_BUFFER_SIZE_HPP

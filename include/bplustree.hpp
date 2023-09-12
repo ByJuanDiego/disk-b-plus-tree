@@ -2,16 +2,21 @@
 // Created by juan diego on 9/7/23.
 //
 
-#ifndef B_PLUS_TREE_BPLUSTREE_H
-#define B_PLUS_TREE_BPLUSTREE_H
+#ifndef B_PLUS_TREE_BPLUSTREE_HPP
+#define B_PLUS_TREE_BPLUSTREE_HPP
 
 #include <functional>
 #include <vector>
 
-#include "pages.h"
-#include "property.h"
-#include "file_utils.h"
+#include "pages.hpp"
+#include "property.hpp"
+#include "file_utils.hpp"
 
+struct InsertStatus {
+    DataPageType type;
+    int64 seek_previous_page;
+    int32 size;
+};
 
 template <
     typename KeyType,
@@ -23,7 +28,7 @@ template <
 private:
 
     std::fstream metadata_file;
-    std::fstream b_plus_file;
+    std::fstream b_plus_index_file;
 
     Json::Value metadata_json;
 
@@ -38,42 +43,35 @@ private:
         metadata_file << metadata_json;
     }
 
-    void open_metadata(std::ios::openmode mode) {
-        metadata_file.open(metadata_json[METADATA_FULL_PATH].asString(), mode);
+    void open(std::fstream & file, const std::string& file_name, std::ios::openmode mode_flags) {
+        file.open(file_name, mode_flags);
     }
 
-    void open_index(std::ios::openmode mode) {
-        b_plus_file.open(metadata_json[INDEX_FULL_PATH].asString(), mode);
+    void close(std::fstream& file) {
+        file.close();
     }
 
-    bool is_empty() {
-        return metadata_json[ROOT_STATUS].asInt() == Root::empty;
-    }
-
-    bool points_to_data_page() {
-        return metadata_json[ROOT_STATUS].asInt() == Root::points_to_data;
-    }
-
-    bool points_to_index_page() {
-        return metadata_json[ROOT_STATUS].asInt() == Root::points_to_index;
+    void seek_all(std::fstream& file, int64 pos, std::ios::seekdir offset = std::ios::beg) {
+        file.seekg(pos, offset);
+        file.seekp(pos, offset);
     }
 
     int64 locate_data_page(KeyType& key) {
         switch (metadata_json[ROOT_STATUS].asInt()) {
-            case Root::empty: {
+            case emptyPage: {
                 throw KeyNotFound();
             }
-            case Root::points_to_data: {
+            case dataPage: {
                 return metadata_json[SEEK_ROOT].asInt();
             }
-            case Root::points_to_index: {
+            case indexPage: {
                 // iterates through the index pages and descends the B+ in order to locate the first data page
                 // that may contain the key to search.
                 int64 seek_page = metadata_json[SEEK_ROOT].asInt();
                 IndexPage<KeyType> index_page(metadata_json[INDEX_PAGE_CAPACITY]);
                 do {
-                    b_plus_file.seekg(seek_page);
-                    index_page.read(b_plus_file);
+                    b_plus_index_file.seekg(seek_page);
+                    index_page.read(b_plus_index_file);
                     int i;
                     for (i = 0; (i < index_page.num_keys) && greater_to(key, index_page.keys[i]); ++i);
                     seek_page = index_page.children[i];
@@ -94,18 +92,48 @@ private:
         }
 
         // then, opens the metadata file and writes the JSON metadata.
-        open_metadata(std::ios::out);
+        open(metadata_file, metadata_json[METADATA_FULL_PATH].asString(), std::ios::out);
         if (!metadata_file.is_open()) {
             throw CreateFileError();
         }
         save_metadata();
 
         // finally, creates an empty file for the B+
-        open_index(std::ios::out);
-        if (!b_plus_file.is_open()) {
+        open(b_plus_index_file, metadata_json[INDEX_FULL_PATH].asString(), std::ios::out);
+        if (!b_plus_index_file.is_open()) {
             throw CreateFileError();
         }
-        b_plus_file.close();
+
+        close(b_plus_index_file);
+    }
+
+    InsertStatus insert(int64 seek_page, DataPageType type, RecordType& record) {
+        if (type == dataPage) {
+            DataPage<RecordType> data_page(metadata_json[DATA_PAGE_CAPACITY].asInt());
+            seek_all(b_plus_index_file, seek_page);
+            data_page.read(b_plus_index_file);
+            data_page.template sorted_insert<KeyType, Greater>(record, get_indexed_field(record), greater_to);
+            return { dataPage, seek_page, data_page.num_records };
+        }
+
+        IndexPage<KeyType> index_page(metadata_json[INDEX_PAGE_CAPACITY].asInt());
+        seek_all(b_plus_index_file, seek_page);
+        index_page.read(b_plus_index_file);
+
+        int i;
+        for (i = 0; i < index_page.num_keys && greater_to(get_indexed_field(record), index_page.keys[i]); ++i);
+        InsertStatus prev_page_status = insert(index_page.children[i], index_page.points_to_leaf? dataPage: indexPage, record);
+
+        if (prev_page_status.type == dataPage && prev_page_status.size == metadata_json[DATA_PAGE_CAPACITY].asInt()) {
+            // do some stuff
+            // TODO
+        }
+        else if (prev_page_status.type == indexPage && prev_page_status.size == metadata_json[INDEX_PAGE_CAPACITY].asInt()) {
+            // do some stuff
+            // TODO
+        }
+
+        return { indexPage, seek_page, index_page.num_keys };
     }
 
 public:
@@ -113,32 +141,48 @@ public:
     explicit BPlusTree(const Property& property, Index index, Greater greater = Greater())
             : greater_to(greater), get_indexed_field(index) {
         metadata_json = property.json_value();
-        open_metadata(std::ios::in);
+        open(metadata_file, metadata_json[METADATA_FULL_PATH].asString(), std::ios::in);
 
         // if the metadata file cannot be opened, creates the index
         if (!metadata_file.good()) {
-            b_plus_file.close();
+            b_plus_index_file.close();
             create_index();
             return;
         }
         // otherwise, just loads the metadata in RAM
         load_metadata();
-        b_plus_file.close();
+        close(b_plus_index_file);
     }
 
     void insert(RecordType& record) {
-        // TODO
+        open(b_plus_index_file, metadata_json[INDEX_FULL_PATH].asString(), std::ios::in | std::ios::out);
+
+        auto data_page_type = (DataPageType) metadata_json[ROOT_STATUS].asInt();
+
+        if (data_page_type == emptyPage) {
+            DataPage<RecordType> data_page(metadata_json[DATA_PAGE_CAPACITY].asInt());
+            data_page.push_back(record);
+            metadata_json[SEEK_ROOT] = INITIAL_PAGE;
+            b_plus_index_file.seekp(INITIAL_PAGE);
+            data_page.write(b_plus_index_file);
+        } else {
+            InsertStatus status = this->insert(metadata_json[SEEK_ROOT].asLargestInt(), data_page_type, record);
+            // do some stuff...
+            // TODO
+        }
+
+        close(b_plus_index_file);
     }
 
     std::vector<RecordType> search(KeyType& key) {
-        open_index(std::ios::in);
+        open(b_plus_index_file, metadata_json[INDEX_FULL_PATH].asString(), std::ios::in);
         int64 seek_page = locate_data_page(key);
 
         std::vector<RecordType> located_records;
         DataPage<RecordType> data_page(metadata_json[DATA_PAGE_CAPACITY]);
         do {
-            b_plus_file.seekg(seek_page);
-            data_page.read(b_plus_file);
+            b_plus_index_file.seekg(seek_page);
+            data_page.read(b_plus_index_file);
 
             for (int i = 0; i < data_page.num_records; ++i) {
                 if (greater_to(key, get_indexed_field(data_page.records[i]))) {
@@ -148,7 +192,7 @@ public:
                     if (located_records.empty()) {
                         throw KeyNotFound();
                     }
-                    b_plus_file.close();
+                    b_plus_index_file.close();
                     return located_records;
                 }
                 located_records.push_back(data_page.records[i]);
@@ -156,26 +200,26 @@ public:
             seek_page = data_page.next_leaf;
         } while (seek_page != NULL_PAGE);
 
-        b_plus_file.close();
+        close(b_plus_index_file);
         return located_records;
     }
 
     std::vector<RecordType> between(KeyType& lower_bound, KeyType& upper_bound) {
-        open_index(std::ios::in);
+        open(b_plus_index_file, metadata_json[INDEX_FULL_PATH], std::ios::in);
         int64 seek_page = locate_data_page(lower_bound);
 
         std::vector<RecordType> located_records;
         DataPage<RecordType> data_page(metadata_json[DATA_PAGE_CAPACITY]);
         do {
-            b_plus_file.seekg(seek_page);
-            data_page.read(b_plus_file);
+            b_plus_index_file.seekg(seek_page);
+            data_page.read(b_plus_index_file);
 
             for (int i = 0; i < data_page.num_records; ++i) {
                 if (greater_to(lower_bound, get_indexed_field(data_page.records[i]))) {
                     continue;
                 }
                 if (greater_to(get_indexed_field(data_page.records[i])), upper_bound) {
-                    b_plus_file.close();
+                    b_plus_index_file.close();
                     return located_records;
                 }
                 located_records.push_back(data_page.records[i]);
@@ -183,7 +227,7 @@ public:
             seek_page = data_page.next_leaf;
         } while (seek_page != NULL_PAGE);
 
-        b_plus_file.close();
+        close(b_plus_index_file);
         return located_records;
     }
 
@@ -192,4 +236,4 @@ public:
     }
 };
 
-#endif //B_PLUS_TREE_BPLUSTREE_H
+#endif //B_PLUS_TREE_BPLUSTREE_HPP

@@ -2,8 +2,8 @@
 // Created by juan diego on 9/8/23.
 //
 
-#ifndef B_PLUS_TREE_FILE_UTILS_H
-#define B_PLUS_TREE_FILE_UTILS_H
+#ifndef B_PLUS_TREE_FILE_UTILS_HPP
+#define B_PLUS_TREE_FILE_UTILS_HPP
 
 #include <string>
 #include <filesystem>
@@ -35,4 +35,4 @@ bool create_directory(const std::string& path) {
     return true;
 }
 
-#endif //B_PLUS_TREE_FILE_UTILS_H
+#endif //B_PLUS_TREE_FILE_UTILS_HPP

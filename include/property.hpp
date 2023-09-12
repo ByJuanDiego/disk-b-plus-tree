@@ -2,8 +2,8 @@
 // Created by juan diego on 9/8/23.
 //
 
-#ifndef B_PLUS_TREE_PROPERTY_H
-#define B_PLUS_TREE_PROPERTY_H
+#ifndef B_PLUS_TREE_PROPERTY_HPP
+#define B_PLUS_TREE_PROPERTY_HPP
 
 #include <json/json.h>
 
@@ -25,10 +25,10 @@ const std::string LAST_DATA_PAGE = "seek_last_data_page";
 using int32 = int32_t;
 using int64 = int64_t;
 
-enum Root {
-    empty = -1,      // Empty Tree
-    points_to_index, // IndexPage
-    points_to_data   // DataPage
+enum DataPageType {
+    emptyPage = NULL_PAGE,  // Empty Tree
+    indexPage,              // IndexPage
+    dataPage                // DataPage
 };
 
 struct Property {
@@ -62,7 +62,7 @@ struct Property {
 
         // B+ tree info.
         json[UNIQUE_KEY] = unique_key;
-        json[ROOT_STATUS] = empty;
+        json[ROOT_STATUS] = emptyPage;
         json[SEEK_ROOT] = NULL_PAGE;
         json[FIRST_DATA_PAGE] = NULL_PAGE;
         json[LAST_DATA_PAGE] = NULL_PAGE;
@@ -73,4 +73,4 @@ struct Property {
     }
 };
 
-#endif //B_PLUS_TREE_PROPERTY_H
+#endif //B_PLUS_TREE_PROPERTY_HPP

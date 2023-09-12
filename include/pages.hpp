@@ -2,8 +2,8 @@
 // Created by juan diego on 9/7/23.
 //
 
-#ifndef B_PLUS_TREE_PAGES_H
-#define B_PLUS_TREE_PAGES_H
+#ifndef B_PLUS_TREE_PAGES_HPP
+#define B_PLUS_TREE_PAGES_HPP
 
 #include <cmath>
 #include <cstdint>
@@ -11,13 +11,14 @@
 #include <sstream>
 #include <cstring>
 
-#include "buffer_size.h"
-#include "error_handler.h"
+#include "buffer_size.hpp"
+#include "error_handler.hpp"
 
 using int64 = int64_t;
 using int32 = int32_t;
 
 const int NULL_PAGE = -1;
+const int INITIAL_PAGE = 0;
 const unsigned int BUFFER_SIZE = get_buffer_size();
 
 
@@ -120,7 +121,7 @@ struct IndexPage {
 
         int i;
         for (i = num_keys - 1; i > 0; ) {
-
+            // TODO
         }
 
         num_keys++;
@@ -236,7 +237,15 @@ struct DataPage {
 
         records[(num_records++) - 1] = record;
     }
+
+    template <typename KeyType, typename Greater>
+    void sorted_insert(RecordType& record, KeyType key, Greater greater_to) {
+        int i;
+        for (i = num_records - 1; i >= 0 && greater_to(records[i], key); records[i + 1] = records[i--]);
+        records[i] = record;
+        ++num_records;
+    }
 };
 
 
-#endif //B_PLUS_TREE_PAGES_H
+#endif //B_PLUS_TREE_PAGES_HPP
