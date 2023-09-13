@@ -10,6 +10,8 @@
 #include <fstream>
 #include <sstream>
 #include <cstring>
+#include <utility>
+#include <vector>
 
 #include "buffer_size.hpp"
 #include "error_handler.hpp"
@@ -19,11 +21,11 @@ using int32 = int32_t;
 
 const int NULL_PAGE = -1;
 const int INITIAL_PAGE = 0;
-const unsigned int BUFFER_SIZE = get_buffer_size();
+uint64_t BUFFER_SIZE = get_buffer_size();
 
 
 template <typename KeyType>
-int32 get_expected_index_page_capacity() {
+auto get_expected_index_page_capacity() -> int32 {
     return std::floor(
             static_cast<double>(BUFFER_SIZE - 2 * sizeof(int32)  - sizeof(int64) - sizeof(bool))  /
             (sizeof(int64) + sizeof(KeyType))
@@ -31,7 +33,7 @@ int32 get_expected_index_page_capacity() {
 }
 
 template <typename RecordType>
-int32 get_expected_data_page_capacity() {
+auto get_expected_data_page_capacity() -> int32 {
     return std::floor(
             static_cast<double>(BUFFER_SIZE - 2 * sizeof(int64) - 2 * sizeof(int32)) /
             (sizeof(RecordType))
@@ -60,7 +62,7 @@ struct IndexPage {
         delete [] children;
     }
 
-    int size_of()  {
+    auto size_of() -> int  {
         return 2 * sizeof(int32) + capacity * sizeof(KeyType) + (capacity + 1) * sizeof(int64) + sizeof(bool);
     }
 
@@ -120,10 +122,11 @@ struct IndexPage {
         }
 
         int i;
-        for (i = num_keys - 1; i > 0; ) {
-            // TODO
-        }
+        for (i = num_keys - 1; i >= 0; keys[i + 1] = keys[i--]);
+        for (i = num_keys; i >= 0; children[i + 1] = children[i--]);
 
+        keys[0] = key;
+        children[0] = child;
         num_keys++;
     }
 
@@ -151,11 +154,31 @@ struct DataPage {
         records = new RecordType[records_capacity];
     }
 
+    DataPage(const DataPage& other)
+        : capacity(std::move(other.capacity)),
+          num_records(std::move(other.num_records)),
+          next_leaf(std::move(other.next_leaf)),
+          prev_leaf(std::move((other.prev_leaf))) {
+        records = new RecordType[capacity];
+
+        for (int i = 0; i < num_records; i++){
+            records[i] = other.records[i];
+        }
+    }
+
+    DataPage(DataPage&& other) noexcept
+        : capacity(std::move(other.capacity)),
+          num_records(other.num_records),
+          next_leaf(other.next_leaf),
+          prev_leaf(other.prev_leaf),
+          records(std::exchange(other.record, nullptr)) {
+    }
+
     ~DataPage() {
         delete [] records;
     }
 
-    int size_of() {
+    auto size_of() -> int {
         return 2 * sizeof(int32) + 2 * sizeof(int64) + capacity * sizeof(RecordType);
     }
 
@@ -224,8 +247,10 @@ struct DataPage {
             throw FullPage();
         }
 
-        int i;
-        for (i = num_records - 1; i > 0; records[i + 1] = records[i--]);
+        for (int i = num_records - 1; i >= 0; --i) {
+            records[i + 1] = records[i];
+        }
+
         records[0] = record;
         num_records++;
     }
@@ -238,11 +263,21 @@ struct DataPage {
         records[(num_records++) - 1] = record;
     }
 
+    auto max_record() -> RecordType {
+        if (num_records < 1) {
+            throw EmptyPage();
+        }
+
+        return records[num_records - 1];
+    }
+
     template <typename KeyType, typename Greater>
     void sorted_insert(RecordType& record, KeyType key, Greater greater_to) {
-        int i;
-        for (i = num_records - 1; i >= 0 && greater_to(records[i], key); records[i + 1] = records[i--]);
-        records[i] = record;
+        int record_pos = num_records - 1;
+        while (record_pos >= 0 && greater_to(records[record_pos], key)) {
+            records[record_pos + 1] = records[record_pos--];
+        }
+        records[record_pos] = record;
         ++num_records;
     }
 };

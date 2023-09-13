@@ -13,8 +13,6 @@
 #include "file_utils.hpp"
 
 struct InsertStatus {
-    DataPageType type;
-    int64 seek_previous_page;
     int32 size;
 };
 
@@ -56,7 +54,7 @@ private:
         file.seekp(pos, offset);
     }
 
-    int64 locate_data_page(KeyType& key) {
+    auto locate_data_page(KeyType& key) -> int64 {
         switch (metadata_json[ROOT_STATUS].asInt()) {
             case emptyPage: {
                 throw KeyNotFound();
@@ -69,12 +67,15 @@ private:
                 // that may contain the key to search.
                 int64 seek_page = metadata_json[SEEK_ROOT].asInt();
                 IndexPage<KeyType> index_page(metadata_json[INDEX_PAGE_CAPACITY]);
+
                 do {
                     b_plus_index_file.seekg(seek_page);
                     index_page.read(b_plus_index_file);
-                    int i;
-                    for (i = 0; (i < index_page.num_keys) && greater_to(key, index_page.keys[i]); ++i);
-                    seek_page = index_page.children[i];
+                    int child_pos = 0;
+                    while ((child_pos < index_page.num_keys) && greater_to(key, index_page.keys[child_pos])) {
+                        ++child_pos;
+                    }
+                    seek_page = index_page.children[child_pos];
                 } while (!index_page.points_to_leaf);
 
                 return seek_page;
@@ -107,29 +108,71 @@ private:
         close(b_plus_index_file);
     }
 
-    InsertStatus insert(int64 seek_page, DataPageType type, RecordType& record) {
+    auto split(DataPage<RecordType>& full_page) -> DataPage<RecordType> {
+        DataPage<RecordType> new_data_page(metadata_json[DATA_PAGE_CAPACITY]);
+        int32 min_data_page_records = metadata_json[MINIMUM_DATA_PAGE_RECORDS].asInt();
+        new_data_page.num_records = min_data_page_records;
+
+        for (int i = 0; i < new_data_page.num_records; ++i) {
+            new_data_page.push_back(full_page.records[i + min_data_page_records + 1]);
+        }
+
+        full_page.num_records = min_data_page_records + 1;
+    }
+
+    auto insert(int64 seek_page, DataPageType type, RecordType& record) -> InsertStatus {
         if (type == dataPage) {
             DataPage<RecordType> data_page(metadata_json[DATA_PAGE_CAPACITY].asInt());
             seek_all(b_plus_index_file, seek_page);
             data_page.read(b_plus_index_file);
             data_page.template sorted_insert<KeyType, Greater>(record, get_indexed_field(record), greater_to);
-            return { dataPage, seek_page, data_page.num_records };
+            return { data_page.num_records };
         }
 
         IndexPage<KeyType> index_page(metadata_json[INDEX_PAGE_CAPACITY].asInt());
         seek_all(b_plus_index_file, seek_page);
         index_page.read(b_plus_index_file);
 
-        int i;
-        for (i = 0; i < index_page.num_keys && greater_to(get_indexed_field(record), index_page.keys[i]); ++i);
-        InsertStatus prev_page_status = insert(index_page.children[i], index_page.points_to_leaf? dataPage: indexPage, record);
-
-        if (prev_page_status.type == dataPage && prev_page_status.size == metadata_json[DATA_PAGE_CAPACITY].asInt()) {
-            // do some stuff
-            // TODO
+        int child_pos = 0;
+        while (child_pos < index_page.num_keys && greater_to(get_indexed_field(record), index_page.keys[child_pos])) {
+            ++child_pos;
         }
-        else if (prev_page_status.type == indexPage && prev_page_status.size == metadata_json[INDEX_PAGE_CAPACITY].asInt()) {
-            // do some stuff
+
+        DataPageType children_type = index_page.points_to_leaf;
+        int64 child_seek = index_page.children[child_pos];
+        InsertStatus prev_page_status = this->insert(child_seek, children_type, record);
+
+        if (children_type == dataPage && (prev_page_status.size == metadata_json[DATA_PAGE_CAPACITY].asInt())) {
+            DataPage<RecordType> full_page(metadata_json[DATA_PAGE_CAPACITY].asInt());
+            seek_all(b_plus_index_file, child_seek);
+            full_page.read(b_plus_index_file);
+
+            DataPage<RecordType> new_page = split(full_page);
+            seek_all(b_plus_index_file, 0, std::ios::end);
+            int64 new_page_seek = b_plus_index_file.tellp();
+            new_page.prev_leaf = child_seek;
+            new_page.write(b_plus_index_file);
+
+            full_page.next_leaf = new_page_seek;
+            seek_all(b_plus_index_file, child_seek);
+            full_page.write(b_plus_index_file);
+
+            for (int i = index_page.num_keys; i > child_pos; --i) {
+                index_page.keys[i] = index_page.keys[i - 1];
+            }
+
+            for (int i = index_page.num_keys; i > child_pos; --i) {
+                index_page.children[i + 1] = index_page.children[i];
+            }
+
+            index_page.children[child_pos + 1] = new_page_seek;
+            index_page.keys[child_pos] = get_indexed_field(full_page.max_record());
+            ++index_page.num_keys;
+
+            seek_all(b_plus_index_file, seek_page);
+            index_page.write(b_plus_index_file);
+        }
+        else if (children_type == indexPage && (prev_page_status.size == metadata_json[INDEX_PAGE_CAPACITY].asInt())) {
             // TODO
         }
 
@@ -157,16 +200,16 @@ public:
     void insert(RecordType& record) {
         open(b_plus_index_file, metadata_json[INDEX_FULL_PATH].asString(), std::ios::in | std::ios::out);
 
-        auto data_page_type = (DataPageType) metadata_json[ROOT_STATUS].asInt();
+        auto root_page_type = static_cast<DataPageType>(metadata_json[ROOT_STATUS].asInt());
 
-        if (data_page_type == emptyPage) {
+        if (root_page_type == emptyPage) {
             DataPage<RecordType> data_page(metadata_json[DATA_PAGE_CAPACITY].asInt());
             data_page.push_back(record);
             metadata_json[SEEK_ROOT] = INITIAL_PAGE;
             b_plus_index_file.seekp(INITIAL_PAGE);
             data_page.write(b_plus_index_file);
         } else {
-            InsertStatus status = this->insert(metadata_json[SEEK_ROOT].asLargestInt(), data_page_type, record);
+            InsertStatus status = this->insert(metadata_json[SEEK_ROOT].asLargestInt(), root_page_type, record);
             // do some stuff...
             // TODO
         }
@@ -174,13 +217,14 @@ public:
         close(b_plus_index_file);
     }
 
-    std::vector<RecordType> search(KeyType& key) {
+    auto search(KeyType& key) -> std::vector<RecordType> {
         open(b_plus_index_file, metadata_json[INDEX_FULL_PATH].asString(), std::ios::in);
         int64 seek_page = locate_data_page(key);
 
         std::vector<RecordType> located_records;
-        DataPage<RecordType> data_page(metadata_json[DATA_PAGE_CAPACITY]);
-        do {
+        DataPage<RecordType> data_page(metadata_json[DATA_PAGE_CAPACITY].asInt());
+
+        while (seek_page != NULL_PAGE) {
             b_plus_index_file.seekg(seek_page);
             data_page.read(b_plus_index_file);
 
@@ -198,19 +242,20 @@ public:
                 located_records.push_back(data_page.records[i]);
             }
             seek_page = data_page.next_leaf;
-        } while (seek_page != NULL_PAGE);
+        }
 
         close(b_plus_index_file);
         return located_records;
     }
 
-    std::vector<RecordType> between(KeyType& lower_bound, KeyType& upper_bound) {
+    auto between(KeyType& lower_bound, KeyType& upper_bound) -> std::vector<RecordType> {
         open(b_plus_index_file, metadata_json[INDEX_FULL_PATH], std::ios::in);
         int64 seek_page = locate_data_page(lower_bound);
 
         std::vector<RecordType> located_records;
-        DataPage<RecordType> data_page(metadata_json[DATA_PAGE_CAPACITY]);
-        do {
+        DataPage<RecordType> data_page(metadata_json[DATA_PAGE_CAPACITY].asInt());
+
+        while (seek_page != NULL_PAGE) {
             b_plus_index_file.seekg(seek_page);
             data_page.read(b_plus_index_file);
 
@@ -225,7 +270,7 @@ public:
                 located_records.push_back(data_page.records[i]);
             }
             seek_page = data_page.next_leaf;
-        } while (seek_page != NULL_PAGE);
+        }
 
         close(b_plus_index_file);
         return located_records;

@@ -11,6 +11,10 @@ struct FullPage : public virtual std::runtime_error {
     FullPage(): std::runtime_error("The page is full") {}
 };
 
+struct EmptyPage : public virtual std::runtime_error {
+    EmptyPage(): std::runtime_error("The page is empty") {}
+};
+
 struct KeyNotFound : public virtual std::runtime_error {
     KeyNotFound(): std::runtime_error("Key not found") {}
 };

@@ -10,11 +10,11 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-bool directory_exists(const std::string& path) {
+auto directory_exists(const std::string& path) -> bool {
     return std::filesystem::is_directory(path);
 }
 
-bool create_directory(const std::string& path) {
+auto create_directory(const std::string& path) -> bool {
     // Create the directory path
     std::string dir_path;
     std::string current_path;
@@ -26,7 +26,7 @@ bool create_directory(const std::string& path) {
         }
 
         current_path += dir_path + "/";
-        bool status = mkdir(current_path.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        int const status = mkdir(current_path.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
         if (status == 1) {
             return false;
         }

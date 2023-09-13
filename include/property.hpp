@@ -27,13 +27,15 @@ using int64 = int64_t;
 
 enum DataPageType {
     emptyPage = NULL_PAGE,  // Empty Tree
-    indexPage,              // IndexPage
-    dataPage                // DataPage
+    indexPage = 0,          // IndexPage
+    dataPage  = 1           // DataPage
 };
 
 struct Property {
+private:
     Json::Value json;
 
+public:
     explicit Property(const std::string& directory_path,
                       const std::string& metadata_file_name,
                       const std::string& index_file_name,
@@ -68,7 +70,7 @@ struct Property {
         json[LAST_DATA_PAGE] = NULL_PAGE;
     }
 
-    [[nodiscard]] Json::Value json_value() const {
+    [[nodiscard]] auto json_value() const -> Json::Value {
         return json;
     }
 };

@@ -6,8 +6,8 @@ struct Record {
     char name [11];
 };
 
-int main() {
-    Property property(
+auto main() -> int {
+    Property const property(
             "./test/index_by_id/",
             "metadata.json",
             "index.dat",
@@ -16,10 +16,10 @@ int main() {
             true
             );
 
-    std::function<int32(Record&)> get_indexed_field = [](Record& record) {
+    std::function<int32(Record&)> const get_indexed_field = [](Record& record) {
         return record.id;
     };
 
-    BPlusTree<int32, Record> tree(property, get_indexed_field);
+    BPlusTree<int32, Record> const tree(property, get_indexed_field);
     return EXIT_SUCCESS;
 }

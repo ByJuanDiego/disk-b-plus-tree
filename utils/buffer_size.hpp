@@ -14,7 +14,7 @@
 #endif
 
 
-unsigned long get_buffer_size() {
+auto get_buffer_size() -> uint64_t {
 #if defined(_WIN64)
     SYSTEM_INFO systemInfo;
     GetSystemInfo(&systemInfo);
