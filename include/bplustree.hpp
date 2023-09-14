@@ -330,7 +330,7 @@ public:
             }
         }
 
-        open(metadata_file, metadata_json[INDEX_FULL_PATH].asString(), std::ios::out);
+        open(metadata_file, metadata_json[METADATA_FULL_PATH].asString(), std::ios::out);
         save_metadata();
         close(metadata_file);
 
