@@ -277,10 +277,62 @@ public:
             b_plus_index_file.seekp(INITIAL_PAGE);
             data_page.write(b_plus_index_file);
         } else {
+            // Attempt to insert the new record into the B+ tree.
             InsertStatus status = this->insert(metadata_json[SEEK_ROOT].asLargestInt(), root_page_type, record);
-            // do some stuff...
-            // TODO
+
+            // Check if the root page is full and needs to be split.
+            if (status.size == metadata_json[INDEX_PAGE_CAPACITY].asInt()) {
+                // Save the seek position of the old root page for reference.
+                int64 old_root_seek = metadata_json[SEEK_ROOT].asLargestInt();
+
+                // Create a new index page with the defined maximum capacity.
+                IndexPage<KeyType> full_root(metadata_json[INDEX_PAGE_CAPACITY].asInt());
+
+                // Read the contents of the old root page from the index file.
+                seek_all(b_plus_index_file, old_root_seek);
+                full_root.read(b_plus_index_file);
+
+                // Initialize variables for the new root page and key.
+                KeyType new_root_key {};
+
+                // Split the old root page into two pages, with new data in 'new_page'.
+                IndexPage<KeyType> new_page = split_index_page(full_root, new_root_key);
+
+                // Save the seek position of the new page in the index file.
+                seek_all(b_plus_index_file, 0, std::ios::end);
+                int64 new_page_seek = b_plus_index_file.tellp();
+
+                // Write the new page to the index file.
+                new_page.write(b_plus_index_file);
+
+                // Write the updated old root page back to the index file.
+                seek_all(b_plus_index_file, old_root_seek);
+                full_root.write(b_plus_index_file);
+
+                // Create a new root page with the same maximum capacity.
+                IndexPage<KeyType> new_root(metadata_json[INDEX_PAGE_CAPACITY].asInt());
+
+                // Update the new root page with information about the new root key and children.
+                new_root.num_keys = 1;
+                new_root.keys[0] = new_root_key;
+                new_root.children[0] = old_root_seek;
+                new_root.children[1] = new_page_seek;
+
+                // Save the seek position of the new root page in the index file.
+                seek_all(b_plus_index_file, 0, std::ios::end);
+                int64 new_root_seek = b_plus_index_file.tellp();
+
+                // Write the new root page to the index file.
+                new_root.write(b_plus_index_file);
+
+                // Update metadata to point to the seek position of the new root page.
+                metadata_json[SEEK_ROOT] = new_root_seek;
+            }
         }
+
+        open(metadata_file, metadata_json[INDEX_FULL_PATH].asString(), std::ios::out);
+        save_metadata();
+        close(metadata_file);
 
         close(b_plus_index_file);
     }
