@@ -21,7 +21,7 @@ using int32 = int32_t;
 
 const int NULL_PAGE = -1;
 const int INITIAL_PAGE = 0;
-uint64_t BUFFER_SIZE = get_buffer_size();
+const uint64_t BUFFER_SIZE = get_buffer_size();
 
 
 template <typename KeyType>

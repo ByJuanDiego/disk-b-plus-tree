@@ -108,16 +108,57 @@ private:
         close(b_plus_index_file);
     }
 
-    auto split(DataPage<RecordType>& full_page) -> DataPage<RecordType> {
-        DataPage<RecordType> new_data_page(metadata_json[DATA_PAGE_CAPACITY]);
+    auto split_data_page(DataPage<RecordType>& full_data_page) -> DataPage<RecordType> {
+        DataPage<RecordType> new_data_page(metadata_json[DATA_PAGE_CAPACITY].asInt());
         int32 min_data_page_records = metadata_json[MINIMUM_DATA_PAGE_RECORDS].asInt();
-        new_data_page.num_records = min_data_page_records;
+        new_data_page.num_records = std::floor(metadata_json[DATA_PAGE_CAPACITY].asInt() / 2.0);
 
         for (int i = 0; i < new_data_page.num_records; ++i) {
-            new_data_page.push_back(full_page.records[i + min_data_page_records + 1]);
+            new_data_page.push_back(full_data_page.records[i + min_data_page_records + 1]);
         }
 
-        full_page.num_records = min_data_page_records + 1;
+        full_data_page.num_records = min_data_page_records + 1;
+    }
+
+    auto split_index_page(IndexPage<KeyType>& full_index_page, KeyType& new_index_page_key) -> IndexPage<KeyType> {
+        IndexPage<KeyType> new_index_page(metadata_json[INDEX_PAGE_CAPACITY].asInt());
+        int32 min_index_page_keys = metadata_json[MINIMUM_INDEX_PAGE_KEYS].asInt();
+        new_index_page.num_keys = min_index_page_keys;
+
+        for (int i = 0; i < new_index_page.num_keys; ++i) {
+            int const index = min_index_page_keys + i + 1;
+            new_index_page.push_back(
+                    full_index_page.keys[index],
+                    full_index_page.children[index]
+                    );
+        }
+
+        int32 new_key_pos = std::floor(metadata_json[INDEX_PAGE_CAPACITY].asInt() / 2);
+        new_index_page_key = full_index_page[new_key_pos];
+        new_index_page.children[new_index_page.num_keys] = full_index_page.children[full_index_page.num_keys];
+        full_index_page.num_keys = new_key_pos;
+    }
+
+    void reallocate_references_to_data_pages(IndexPage<KeyType>& index_page, int64 child_pos, KeyType& new_key, int64 new_page_seek) {
+        for (int i = index_page.num_keys; i > child_pos; --i) {
+            index_page.keys[i] = index_page.keys[i - 1];
+            index_page.children[i + 1] = index_page.children[i];
+        }
+
+        index_page.keys[child_pos] = new_key;
+        index_page.children[child_pos + 1] = new_page_seek;
+        ++index_page.num_keys;
+    }
+
+    void reallocate_references_to_index_pages(IndexPage<KeyType>& index_page, int64 child_pos, KeyType& new_key, int64 new_page_seek) {
+        for (int i = index_page.num_keys; i > child_pos; --i) {
+            index_page.keys[i] = index_page.keys[i - 1];
+            index_page.children[i + 1] = index_page.children[i];
+        }
+
+        index_page.keys[child_pos] = new_key;
+        index_page.children[child_pos + 1] = new_page_seek;
+        ++index_page.num_keys;
     }
 
     auto insert(int64 seek_page, DataPageType type, RecordType& record) -> InsertStatus {
@@ -142,38 +183,65 @@ private:
         int64 child_seek = index_page.children[child_pos];
         InsertStatus prev_page_status = this->insert(child_seek, children_type, record);
 
+        // Conditionally splits a data page if it's full
         if (children_type == dataPage && (prev_page_status.size == metadata_json[DATA_PAGE_CAPACITY].asInt())) {
+            // Load the full data page from disk
             DataPage<RecordType> full_page(metadata_json[DATA_PAGE_CAPACITY].asInt());
             seek_all(b_plus_index_file, child_seek);
             full_page.read(b_plus_index_file);
 
-            DataPage<RecordType> new_page = split(full_page);
+            // Create a new data page to accommodate the split
+            DataPage<RecordType> new_page = split_data_page(full_page);
+
+            // Seek to the end of the B+Tree index file to append the new page
             seek_all(b_plus_index_file, 0, std::ios::end);
             int64 new_page_seek = b_plus_index_file.tellp();
+
+            // Set the previous leaf pointer of the new page
             new_page.prev_leaf = child_seek;
+
+            // Write the new data page to the B+Tree index file
             new_page.write(b_plus_index_file);
 
+            // Update the next leaf pointer of the old page to point to the new page
             full_page.next_leaf = new_page_seek;
+
+            // Seek to the location of the old page in the index file and update it
             seek_all(b_plus_index_file, child_seek);
             full_page.write(b_plus_index_file);
 
-            for (int i = index_page.num_keys; i > child_pos; --i) {
-                index_page.keys[i] = index_page.keys[i - 1];
-            }
+            // Calculate the key to insert in the parent index page
+            KeyType new_index_page_key = get_indexed_field(full_page.max_record);
 
-            for (int i = index_page.num_keys; i > child_pos; --i) {
-                index_page.children[i + 1] = index_page.children[i];
-            }
+            // Update references to data pages in the parent index page
+            reallocate_references_to_data_pages(index_page, child_pos, new_index_page_key, new_page_seek);
 
-            index_page.children[child_pos + 1] = new_page_seek;
-            index_page.keys[child_pos] = get_indexed_field(full_page.max_record());
-            ++index_page.num_keys;
-
+            // Seek to the location of the parent index page in the index file and update it
             seek_all(b_plus_index_file, seek_page);
             index_page.write(b_plus_index_file);
         }
         else if (children_type == indexPage && (prev_page_status.size == metadata_json[INDEX_PAGE_CAPACITY].asInt())) {
-            // TODO
+            IndexPage<KeyType> full_page(metadata_json[INDEX_PAGE_CAPACITY].asInt());
+            seek_all(b_plus_index_file, child_seek);
+            full_page.read(b_plus_index_file);
+
+            KeyType new_index_page_key {};
+            IndexPage<KeyType> new_page = split_index_page(full_page, new_index_page_key);
+
+            seek_all(b_plus_index_file, 0, std::ios::end);
+            int64 new_page_seek = b_plus_index_file.tellp();
+            new_page.write(b_plus_index_file);
+
+            index_page.template sorted_insert<KeyType, Greater>(new_index_page_key, new_page_seek, greater_to);
+
+            seek_all(b_plus_index_file, child_seek);
+            full_page.write(b_plus_index_file);
+
+            reallocate_references_to_index_pages(index_page, child_pos, new_index_page_key, new_page_seek);
+
+            // Seek to the location of the parent index page in the index file and update it
+            seek_all(b_plus_index_file, seek_page);
+            index_page.write(b_plus_index_file);
         }
 
         return { indexPage, seek_page, index_page.num_keys };

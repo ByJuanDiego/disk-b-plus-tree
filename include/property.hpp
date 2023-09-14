@@ -53,7 +53,7 @@ public:
 
         // paths info.
         json[DIRECTORY_PATH] = directory_path;
-        json[INDEX_FULL_PATH] = directory_path  + index_file_name;
+        json[INDEX_FULL_PATH] = directory_path + index_file_name;
         json[METADATA_FULL_PATH] = directory_path + metadata_file_name;
 
         // pages size info.
