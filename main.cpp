@@ -7,9 +7,9 @@ struct Record {
     int32 age;
     char name [11];
 
-    friend std::ostream& operator << (std::ostream& os, const Record& record) {
-        os << "(" << record.id << ", " << record.age << ", " << record.name << ")";
-        return os;
+    friend auto operator << (std::ostream& ostream, const Record& record) -> std::ostream& {
+        ostream << "(" << record.id << ", " << record.age << ", " << record.name << ")";
+        return ostream;
     }
 };
 
@@ -18,8 +18,8 @@ auto main() -> int {
             "./b_plus/",
             "metadata.json",
             "index.dat",
-            get_expected_index_page_capacity<int32>(),
-            get_expected_data_page_capacity<Record>(),
+            IndexPage<int32>::get_expected_capacity(),
+            DataPage<Record>::get_expected_capacity(),
             true
             );
 

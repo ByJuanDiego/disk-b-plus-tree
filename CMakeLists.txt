@@ -20,9 +20,15 @@ target_sources(
         utils/error_handler.hpp
         utils/file_utils.hpp
         include/bplustree.hpp
-        include/pages.hpp
+        include/index_page.hpp
         include/property.hpp
+        include/data_page.hpp
         src/bplustree.tpp
+        src/index_page.tpp
+        src/data_page.tpp
+        utils/page_dependencies.h
+        utils/types.h
+        src/property.cpp
 )
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)

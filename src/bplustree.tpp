@@ -1,7 +1,106 @@
+//
+// Created by juan diego on 9/15/23.
+//
+
+
 #include "bplustree.hpp"
 
+
 template<typename KeyType, typename RecordType, typename Greater, typename Index>
-auto BPlusTree<KeyType, RecordType, Greater, Index>::insert(int64 seek_page, DataPageType type,
+auto BPlusTree<KeyType, RecordType, Greater, Index>::load_metadata() -> void {
+    metadata_file >> metadata_json;
+}
+
+
+template<typename KeyType, typename RecordType, typename Greater, typename Index>
+auto BPlusTree<KeyType, RecordType, Greater, Index>::save_metadata() -> void {
+    metadata_file << metadata_json;
+}
+
+
+template<typename KeyType, typename RecordType, typename Greater, typename Index>
+auto BPlusTree<KeyType, RecordType, Greater, Index>::open(std::fstream &file, const std::string &file_name,
+                                                          std::ios::openmode mode_flags) -> void {
+
+    file.open(file_name, mode_flags);
+}
+
+
+template<typename KeyType, typename RecordType, typename Greater, typename Index>
+auto BPlusTree<KeyType, RecordType, Greater, Index>::close(std::fstream &file) -> void {
+    file.close();
+}
+
+
+template<typename KeyType, typename RecordType, typename Greater, typename Index>
+auto BPlusTree<KeyType, RecordType, Greater, Index>::seek_all(std::fstream &file, int64 pos,
+                                                              std::ios::seekdir offset) -> void {
+    file.seekg(pos, offset);
+    file.seekp(pos, offset);
+}
+
+
+template<typename KeyType, typename RecordType, typename Greater, typename Index>
+auto BPlusTree<KeyType, RecordType, Greater, Index>::locate_data_page(KeyType &key) -> int64 {
+    switch (metadata_json[ROOT_STATUS].asInt()) {
+        case emptyPage: {
+            throw KeyNotFound();
+        }
+        case dataPage: {
+            return metadata_json[SEEK_ROOT].asInt();
+        }
+        case indexPage: {
+            // iterates through the index pages and descends the B+ in order to locate the first data page
+            // that may contain the key to search.
+            int64 seek_page = metadata_json[SEEK_ROOT].asInt();
+            IndexPage<KeyType> index_page(metadata_json[INDEX_PAGE_CAPACITY].asInt());
+
+            do {
+                b_plus_index_file.seekg(seek_page);
+                index_page.read(b_plus_index_file);
+                int child_pos = 0;
+                while ((child_pos < index_page.num_keys) && greater_to(key, index_page.keys[child_pos])) {
+                    ++child_pos;
+                }
+                seek_page = index_page.children[child_pos];
+            } while (!index_page.points_to_leaf);
+
+            return seek_page;
+        }
+    }
+    throw KeyNotFound();
+}
+
+
+template<typename KeyType, typename RecordType, typename Greater, typename Index>
+auto BPlusTree<KeyType, RecordType, Greater, Index>::create_index() -> void {
+    // first verifies if the directory path exists and creates it if not exists.
+    if (!directory_exists(metadata_json[DIRECTORY_PATH].asString())) {
+        bool successfully_created = create_directory(metadata_json[DIRECTORY_PATH].asString());
+        if (!successfully_created) {
+            throw CreateDirectoryError();
+        }
+    }
+
+    // then, opens the metadata file and writes the JSON metadata.
+    open(metadata_file, metadata_json[METADATA_FULL_PATH].asString(), std::ios::out);
+    if (!metadata_file.is_open()) {
+        throw CreateFileError();
+    }
+    save_metadata();
+    close(metadata_file);
+
+    // finally, creates an empty file for the B+
+    open(b_plus_index_file, metadata_json[INDEX_FULL_PATH].asString(), std::ios::out);
+    if (!b_plus_index_file.is_open()) {
+        throw CreateFileError();
+    }
+
+    close(b_plus_index_file);
+}
+
+template<typename KeyType, typename RecordType, typename Greater, typename Index>
+auto BPlusTree<KeyType, RecordType, Greater, Index>::insert(int64 seek_page, PageType type,
                                                             RecordType &record) -> InsertStatus {
     if (type == dataPage) {
         DataPage<RecordType> data_page(metadata_json[DATA_PAGE_CAPACITY].asInt());
@@ -20,7 +119,7 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::insert(int64 seek_page, Dat
         ++child_pos;
     }
 
-    auto children_type = static_cast<DataPageType>(index_page.points_to_leaf);
+    auto children_type = static_cast<PageType>(index_page.points_to_leaf);
     int64 child_seek = index_page.children[child_pos];
     InsertStatus prev_page_status = this->insert(child_seek, children_type, record);
 
@@ -32,7 +131,8 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::insert(int64 seek_page, Dat
         full_page.read(b_plus_index_file);
 
         // Create a new data page to accommodate the split
-        DataPage<RecordType> new_page = split_data_page(full_page);
+        DataPage<RecordType> new_page = full_page.split(metadata_json[MINIMUM_DATA_PAGE_RECORDS].asInt());
+
 
         // Seek to the end of the B+Tree index file to append the new page
         seek_all(b_plus_index_file, 0, std::ios::end);
@@ -68,7 +168,7 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::insert(int64 seek_page, Dat
         full_page.read(b_plus_index_file);
 
         KeyType new_index_page_key {};
-        IndexPage<KeyType> new_page = split_index_page(full_page, new_index_page_key);
+        IndexPage<KeyType> new_page = full_page.split(metadata_json[MINIMUM_INDEX_PAGE_KEYS].asInt(), new_index_page_key);
 
         seek_all(b_plus_index_file, 0, std::ios::end);
         int64 new_page_seek = b_plus_index_file.tellp();
@@ -111,14 +211,14 @@ BPlusTree<KeyType, RecordType, Greater, Index>::BPlusTree(const Property &proper
 template<typename KeyType, typename RecordType, typename Greater, typename Index>
 auto BPlusTree<KeyType, RecordType, Greater, Index>::insert(RecordType &record) -> void {
     open(b_plus_index_file, metadata_json[INDEX_FULL_PATH].asString(), std::ios::in | std::ios::out);
-    auto root_page_type = static_cast<DataPageType>(metadata_json[ROOT_STATUS].asInt());
+    auto root_page_type = static_cast<PageType>(metadata_json[ROOT_STATUS].asInt());
 
     if (root_page_type == emptyPage) {
         DataPage<RecordType> data_page(metadata_json[DATA_PAGE_CAPACITY].asInt());
         data_page.push_back(record);
-        metadata_json[SEEK_ROOT] = INITIAL_PAGE;
+        metadata_json[SEEK_ROOT] = DEFAULT_INITIAL_PAGE;
         metadata_json[ROOT_STATUS] = dataPage;
-        b_plus_index_file.seekp(INITIAL_PAGE);
+        b_plus_index_file.seekp(DEFAULT_INITIAL_PAGE);
         data_page.write(b_plus_index_file);
     }
     else {
@@ -141,7 +241,7 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::insert(RecordType &record) 
             KeyType new_root_key {};
 
             // Split the old root page into two pages, with new data in 'new_page'.
-            IndexPage<KeyType> new_page = split_index_page(full_root, new_root_key);
+            IndexPage<KeyType> new_page = full_root.split(metadata_json[MINIMUM_INDEX_PAGE_KEYS].asInt(), new_root_key);
 
             // Save the seek position of the new page in the index file.
             seek_all(b_plus_index_file, 0, std::ios::end);
