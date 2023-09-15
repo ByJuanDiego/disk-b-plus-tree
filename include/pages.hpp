@@ -66,7 +66,7 @@ struct IndexPage {
         return 2 * sizeof(int32) + capacity * sizeof(KeyType) + (capacity + 1) * sizeof(int64) + sizeof(bool);
     }
 
-    void write(std::ofstream &file) {
+    void write(std::fstream &file) {
         char* buffer = new char[size_of()];
 
         int offset = 0;
@@ -92,7 +92,7 @@ struct IndexPage {
         delete [] buffer;
     }
 
-    void read(std::ifstream & file) {
+    void read(std::fstream & file) {
         char* buffer = new char[size_of()];
         file.read(buffer, size_of());
 
@@ -138,6 +138,39 @@ struct IndexPage {
         keys[num_keys] = key;
         children[++num_keys] = child;
     }
+
+    auto reallocate_references_to_data_pages(int64 child_pos, KeyType& new_key, int64 new_page_seek) -> void {
+        for (int i = num_keys; i > child_pos; --i) {
+            keys[i] = keys[i - 1];
+            children[i + 1] = children[i];
+        }
+
+        keys[child_pos] = new_key;
+        children[child_pos + 1] = new_page_seek;
+        ++num_keys;
+    }
+
+    auto reallocate_references_to_index_pages(int64 child_pos, KeyType& new_key, int64 new_page_seek) -> void {
+        for (int i = num_keys; i > child_pos; --i) {
+            keys[i] = keys[i - 1];
+            children[i + 1] = children[i];
+        }
+
+        keys[child_pos] = new_key;
+        children[child_pos + 1] = new_page_seek;
+        ++num_keys;
+    }
+
+    template <typename Greater>
+    void sorted_insert(KeyType& key, int64 children_seek, Greater greater_to) {
+        int key_pos = num_keys - 1;
+        while (key_pos >= 0 && greater_to(keys[key_pos], key)) {
+            keys[key_pos + 1] = keys[key_pos--];
+        }
+        keys[key_pos] = key;
+        children[key_pos + 1] = children_seek;
+        ++num_keys;
+    }
 };
 
 
@@ -171,7 +204,7 @@ struct DataPage {
           num_records(other.num_records),
           next_leaf(other.next_leaf),
           prev_leaf(other.prev_leaf),
-          records(std::exchange(other.record, nullptr)) {
+          records(std::exchange(other.records, nullptr)) {
     }
 
     ~DataPage() {
@@ -182,7 +215,7 @@ struct DataPage {
         return 2 * sizeof(int32) + 2 * sizeof(int64) + capacity * sizeof(RecordType);
     }
 
-    void write(std::ofstream & file) {
+    void write(std::fstream & file) {
         char* buffer = new char[size_of()];
         int offset = 0;
 
@@ -216,7 +249,7 @@ struct DataPage {
      *
      * @param file An input file stream from which data is read.
      */
-    void read(std::ifstream & file) {
+    void read(std::fstream & file) {
         char* buffer = new char[size_of()];
         int offset = 0;
         file.read(buffer, size_of());
@@ -260,7 +293,7 @@ struct DataPage {
             throw FullPage();
         }
 
-        records[(num_records++) - 1] = record;
+        records[(num_records++)] = record;
     }
 
     auto max_record() -> RecordType {
@@ -271,10 +304,11 @@ struct DataPage {
         return records[num_records - 1];
     }
 
-    template <typename KeyType, typename Greater>
-    void sorted_insert(RecordType& record, KeyType key, Greater greater_to) {
+    template <typename KeyType, typename Greater, typename Index>
+    void sorted_insert(RecordType& record, Greater greater_to, Index get_indexed_field) {
+        KeyType key = get_indexed_field(record);
         int record_pos = num_records - 1;
-        while (record_pos >= 0 && greater_to(records[record_pos], key)) {
+        while (record_pos >= 0 && greater_to(get_indexed_field(records[record_pos]), key)) {
             records[record_pos + 1] = records[record_pos--];
         }
         records[record_pos] = record;

@@ -66,7 +66,7 @@ private:
                 // iterates through the index pages and descends the B+ in order to locate the first data page
                 // that may contain the key to search.
                 int64 seek_page = metadata_json[SEEK_ROOT].asInt();
-                IndexPage<KeyType> index_page(metadata_json[INDEX_PAGE_CAPACITY]);
+                IndexPage<KeyType> index_page(metadata_json[INDEX_PAGE_CAPACITY].asInt());
 
                 do {
                     b_plus_index_file.seekg(seek_page);
@@ -81,6 +81,7 @@ private:
                 return seek_page;
             }
         }
+        throw KeyNotFound();
     }
 
     void create_index() {
@@ -98,6 +99,7 @@ private:
             throw CreateFileError();
         }
         save_metadata();
+        close(metadata_file);
 
         // finally, creates an empty file for the B+
         open(b_plus_index_file, metadata_json[INDEX_FULL_PATH].asString(), std::ios::out);
@@ -118,6 +120,7 @@ private:
         }
 
         full_data_page.num_records = min_data_page_records + 1;
+        return new_data_page;
     }
 
     auto split_index_page(IndexPage<KeyType>& full_index_page, KeyType& new_index_page_key) -> IndexPage<KeyType> {
@@ -134,31 +137,10 @@ private:
         }
 
         int32 new_key_pos = std::floor(metadata_json[INDEX_PAGE_CAPACITY].asInt() / 2);
-        new_index_page_key = full_index_page[new_key_pos];
+        new_index_page_key = full_index_page.keys[new_key_pos];
         new_index_page.children[new_index_page.num_keys] = full_index_page.children[full_index_page.num_keys];
         full_index_page.num_keys = new_key_pos;
-    }
-
-    void reallocate_references_to_data_pages(IndexPage<KeyType>& index_page, int64 child_pos, KeyType& new_key, int64 new_page_seek) {
-        for (int i = index_page.num_keys; i > child_pos; --i) {
-            index_page.keys[i] = index_page.keys[i - 1];
-            index_page.children[i + 1] = index_page.children[i];
-        }
-
-        index_page.keys[child_pos] = new_key;
-        index_page.children[child_pos + 1] = new_page_seek;
-        ++index_page.num_keys;
-    }
-
-    void reallocate_references_to_index_pages(IndexPage<KeyType>& index_page, int64 child_pos, KeyType& new_key, int64 new_page_seek) {
-        for (int i = index_page.num_keys; i > child_pos; --i) {
-            index_page.keys[i] = index_page.keys[i - 1];
-            index_page.children[i + 1] = index_page.children[i];
-        }
-
-        index_page.keys[child_pos] = new_key;
-        index_page.children[child_pos + 1] = new_page_seek;
-        ++index_page.num_keys;
+        return new_index_page;
     }
 
     auto insert(int64 seek_page, DataPageType type, RecordType& record) -> InsertStatus;
@@ -173,9 +155,7 @@ public:
 
     auto between(KeyType& lower_bound, KeyType& upper_bound) -> std::vector<RecordType>;
 
-    void remove(KeyType& key) {
-        // TODO
-    }
+    auto remove(KeyType& key) -> void;
 };
 
 #include "bplustree.tpp"
