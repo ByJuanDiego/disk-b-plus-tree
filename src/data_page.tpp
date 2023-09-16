@@ -153,9 +153,10 @@ template<typename KeyType, typename Greater, typename Index>
 void DataPage<RecordType>::sorted_insert(RecordType &record, Greater greater_to, Index get_indexed_field) {
 
     KeyType key = get_indexed_field(record);
-    int record_pos = num_records - 1;
-    while (record_pos >= 0 && greater_to(get_indexed_field(records[record_pos]), key)) {
-        records[record_pos + 1] = records[record_pos--];
+    int record_pos = num_records;
+    while (record_pos >= 1 && greater_to(get_indexed_field(records[record_pos]), key)) {
+        records[record_pos] = records[record_pos - 1];
+        --record_pos;
     }
     records[record_pos] = record;
     ++num_records;

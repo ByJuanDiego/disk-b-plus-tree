@@ -41,7 +41,7 @@ private:
 
     auto seek_all(std::fstream& file, int64 pos, std::ios::seekdir offset = std::ios::beg) -> void;
 
-    auto locate_data_page(KeyType& key) -> int64;
+    auto locate_data_page(const KeyType& key) -> int64;
 
     auto create_index() -> void;
 
@@ -53,9 +53,9 @@ public:
 
     auto insert(RecordType& record) -> void;
 
-    auto search(KeyType& key) -> std::vector<RecordType>;
+    auto search(const KeyType& key) -> std::vector<RecordType>;
 
-    auto between(KeyType& lower_bound, KeyType& upper_bound) -> std::vector<RecordType>;
+    auto between(const KeyType& lower_bound, const KeyType& upper_bound) -> std::vector<RecordType>;
 
     auto remove(KeyType& key) -> void;
 };

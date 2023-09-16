@@ -4,7 +4,7 @@
 
 
 #include "bplustree.hpp"
-
+#include <iostream>
 
 template<typename KeyType, typename RecordType, typename Greater, typename Index>
 auto BPlusTree<KeyType, RecordType, Greater, Index>::load_metadata() -> void {
@@ -41,7 +41,7 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::seek_all(std::fstream &file
 
 
 template<typename KeyType, typename RecordType, typename Greater, typename Index>
-auto BPlusTree<KeyType, RecordType, Greater, Index>::locate_data_page(KeyType &key) -> int64 {
+auto BPlusTree<KeyType, RecordType, Greater, Index>::locate_data_page(const KeyType &key) -> int64 {
     switch (metadata_json[ROOT_STATUS].asInt()) {
         case emptyPage: {
             throw KeyNotFound();
@@ -108,6 +108,8 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::insert(int64 seek_page, Pag
         seek_all(b_plus_index_file, seek_page);
         data_page.read(b_plus_index_file);
         data_page.template sorted_insert<KeyType, Greater, Index>(record, greater_to, get_indexed_field);
+        seek_all(b_plus_index_file, seek_page);
+        data_page.write(b_plus_index_file);
         return InsertStatus {data_page.num_records};
     }
 
@@ -285,7 +287,7 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::insert(RecordType &record) 
 
 
 template<typename KeyType, typename RecordType, typename Greater, typename Index>
-auto BPlusTree<KeyType, RecordType, Greater, Index>::search(KeyType &key) -> std::vector<RecordType> {
+auto BPlusTree<KeyType, RecordType, Greater, Index>::search(const KeyType &key) -> std::vector<RecordType> {
     open(b_plus_index_file, metadata_json[INDEX_FULL_PATH].asString(), std::ios::in);
     int64 seek_page = locate_data_page(key);
 
@@ -318,8 +320,8 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::search(KeyType &key) -> std
 
 
 template<typename KeyType, typename RecordType, typename Greater, typename Index>
-auto BPlusTree<KeyType, RecordType, Greater, Index>::between(KeyType &lower_bound,
-                                                             KeyType &upper_bound) -> std::vector<RecordType> {
+auto BPlusTree<KeyType, RecordType, Greater, Index>::between(const KeyType &lower_bound,
+                                                             const KeyType &upper_bound) -> std::vector<RecordType> {
     open(b_plus_index_file, metadata_json[INDEX_FULL_PATH].asString(), std::ios::in);
     int64 seek_page = locate_data_page(lower_bound);
 
@@ -329,7 +331,6 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::between(KeyType &lower_boun
     do {
         seek_all(b_plus_index_file, seek_page);
         data_page.read(b_plus_index_file);
-
         for (int i = 0; i < data_page.num_records; ++i) {
             if (greater_to(lower_bound, get_indexed_field(data_page.records[i]))) {
                 continue;
