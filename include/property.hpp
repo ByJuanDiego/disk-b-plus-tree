@@ -8,7 +8,7 @@
 #include <json/json.h>
 #include <cmath>
 
-#include "types.h"
+#include "types.hpp"
 
 
 const std::string DIRECTORY_PATH = "directory_path";

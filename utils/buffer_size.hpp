@@ -1,10 +1,11 @@
 //
-// Created by juandiego on 9/7/23.
+// Created by juan diego on 9/7/23.
 //
 
 #ifndef B_PLUS_TREE_BUFFER_SIZE_HPP
 #define B_PLUS_TREE_BUFFER_SIZE_HPP
 
+#include <cstdint>
 #if defined(_WIN64)
 #include <windows.h>
 

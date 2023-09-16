@@ -5,15 +5,13 @@
 #ifndef B_PLUS_TREE_BPLUSTREE_HPP
 #define B_PLUS_TREE_BPLUSTREE_HPP
 
-#include <functional>
+
 #include <vector>
+#include <functional>
 
-#include "index_page.hpp"
-#include "data_page.hpp"
-
+#include "pages.hpp"
 #include "property.hpp"
 #include "file_utils.hpp"
-#include "types.h"
 
 
 template <

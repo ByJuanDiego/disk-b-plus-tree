@@ -1,11 +1,21 @@
 //
-// Created by juandiego on 9/15/23.
+// Created by juan diego on 9/15/23.
 //
 
 #ifndef B_PLUS_TREE_DATA_PAGE_HPP
 #define B_PLUS_TREE_DATA_PAGE_HPP
 
-#include "page_dependencies.h"
+
+#include <cmath>
+#include <fstream>
+#include <sstream>
+#include <cstring>
+#include <utility>
+
+#include "buffer_size.hpp"
+#include "error_handler.hpp"
+#include "types.hpp"
+
 
 template <typename RecordType>
 struct DataPage {

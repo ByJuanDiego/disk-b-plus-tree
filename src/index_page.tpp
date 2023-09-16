@@ -21,19 +21,61 @@ IndexPage<KeyType>::~IndexPage() {
 
 template <typename KeyType>
 auto IndexPage<KeyType>::size_of() -> int {
-    return sizeof(IndexPage<KeyType>);
+    return 2 * sizeof(int32) + capacity * sizeof(KeyType) + (capacity + 1) * sizeof(int64) + sizeof(bool);
 }
 
 
 template <typename KeyType>
 auto IndexPage<KeyType>::write(std::fstream &file) -> void {
-    file.write(reinterpret_cast<char *>(this), sizeof(IndexPage<KeyType>));
+    char* buffer = new char[size_of()];
+
+    int offset = 0;
+    memcpy(buffer + offset, (char *)&capacity, sizeof(int32));
+    offset += sizeof(int32);
+    memcpy(buffer + offset, (char *)&num_keys, sizeof(int32));
+    offset += sizeof(int32);
+
+    for (int i = 0; i < capacity; ++i) {
+        memcpy(buffer + offset, (char *)&keys[i], sizeof(KeyType));
+        offset += sizeof(KeyType);
+    }
+
+    for (int i = 0; i <= capacity; ++i) {
+        memcpy(buffer + offset, (char *)&children[i], sizeof(int64));
+        offset += sizeof(int64);
+    }
+
+    memcpy(buffer + offset, (char *)&points_to_leaf, sizeof(bool));
+
+    file.write(buffer, size_of());
+
+    delete [] buffer;
 }
 
 
 template <typename KeyType>
 auto IndexPage<KeyType>::read(std::fstream &file) -> void {
-    file.read(reinterpret_cast<char *>(this), sizeof(IndexPage<KeyType>));
+    char* buffer = new char[size_of()];
+    file.read(buffer, size_of());
+
+    int offset = 0;
+    memcpy((char *)& capacity, buffer + offset, sizeof(int32));
+    offset += sizeof(int32);
+    memcpy((char *)& num_keys, buffer + offset, sizeof(int32));
+    offset += sizeof(int32);
+
+    for (int i = 0; i < capacity; ++i) {
+        memcpy((char *) &keys[i], buffer + offset, sizeof(KeyType));
+        offset += sizeof(KeyType);
+    }
+
+    for (int i = 0; i <= capacity; ++i) {
+        memcpy((char *) &children[i], buffer + offset, sizeof(int64));
+        offset += sizeof(int64);
+    }
+
+    memcpy((char *) &points_to_leaf, buffer + offset, sizeof(bool));
+    delete [] buffer;
 }
 
 
@@ -74,6 +116,7 @@ auto IndexPage<KeyType>::reallocate_references_to_data_pages(int64 child_pos, Ke
     ++num_keys;
 }
 
+
 template <typename KeyType>
 auto IndexPage<KeyType>::reallocate_references_to_index_pages(int64 child_pos, KeyType& new_key, int64 new_page_seek) -> void {
     for (int i = num_keys; i > child_pos; --i) {
@@ -85,6 +128,7 @@ auto IndexPage<KeyType>::reallocate_references_to_index_pages(int64 child_pos, K
     children[child_pos + 1] = new_page_seek;
     ++num_keys;
 }
+
 
 template <typename KeyType>
 template <typename Greater>
@@ -100,6 +144,7 @@ auto IndexPage<KeyType>::sorted_insert(KeyType& key, int64 children_seek, Greate
     ++num_keys;
 }
 
+
 template <typename KeyType>
 auto IndexPage<KeyType>::split(int32 min_index_page_keys, KeyType& new_index_page_key) -> IndexPage<KeyType> {
     IndexPage<KeyType> new_index_page(this->capacity);
@@ -110,14 +155,13 @@ auto IndexPage<KeyType>::split(int32 min_index_page_keys, KeyType& new_index_pag
         new_index_page.push_back(this->keys[index], this->children[index]);
     }
 
-    int32 new_key_pos = static_cast<int32>(std::floor(capacity / 2));
+    int32 new_key_pos = std::floor(capacity / 2.0);
     new_index_page_key = this->keys[new_key_pos];
     new_index_page.children[new_index_page.num_keys] = this->children[num_keys];
     num_keys = new_key_pos;
 
     return new_index_page;
 }
-
 
 
 template<typename KeyType>

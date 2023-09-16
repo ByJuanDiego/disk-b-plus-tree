@@ -5,7 +5,17 @@
 #ifndef B_PLUS_TREE_INDEX_PAGE_HPP
 #define B_PLUS_TREE_INDEX_PAGE_HPP
 
-#include "page_dependencies.h"
+
+#include <cmath>
+#include <fstream>
+#include <sstream>
+#include <cstring>
+#include <utility>
+
+#include "buffer_size.hpp"
+#include "error_handler.hpp"
+#include "types.hpp"
+
 
 template <typename KeyType>
 struct IndexPage {

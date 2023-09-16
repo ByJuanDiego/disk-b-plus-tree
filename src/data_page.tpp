@@ -44,7 +44,7 @@ DataPage<RecordType>::DataPage(const DataPage &other)
 
 template<typename RecordType>
 DataPage<RecordType>::DataPage(int32 records_capacity)
-        : capacity(records_capacity), num_records(0), next_leaf(NULL_PAGE), prev_leaf(NULL_PAGE) {
+        : capacity(records_capacity), num_records(0), next_leaf(emptyPage), prev_leaf(emptyPage) {
     records = new RecordType[records_capacity];
 }
 

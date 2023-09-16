@@ -2,8 +2,8 @@
 // Created by juan diego on 9/15/23.
 //
 
-#ifndef B_PLUS_TREE_TYPES_H
-#define B_PLUS_TREE_TYPES_H
+#ifndef B_PLUS_TREE_TYPES_HPP
+#define B_PLUS_TREE_TYPES_HPP
 
 using int64 = int64_t;
 using int32 = int32_t;
@@ -21,4 +21,4 @@ struct InsertStatus {
 };
 
 
-#endif //B_PLUS_TREE_TYPES_H
+#endif //B_PLUS_TREE_TYPES_HPP

@@ -16,19 +16,21 @@ target_include_directories(${PROJECT_NAME} PRIVATE utils include src)
 target_sources(
         ${PROJECT_NAME}
         PRIVATE
+        src/bplustree.tpp
+        src/data_page.tpp
+        src/index_page.tpp
+        src/property.cpp
+
         utils/buffer_size.hpp
         utils/error_handler.hpp
         utils/file_utils.hpp
+        utils/types.hpp
+
         include/bplustree.hpp
-        include/index_page.hpp
-        include/property.hpp
         include/data_page.hpp
-        src/bplustree.tpp
-        src/index_page.tpp
-        src/data_page.tpp
-        utils/page_dependencies.h
-        utils/types.h
-        src/property.cpp
+        include/index_page.hpp
+        include/pages.hpp
+        include/property.hpp
 )
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)

@@ -2,16 +2,18 @@
 #include <iostream>
 
 
+constexpr int NAME_LENGTH = 11;
 struct Record {
     int32 id;
     int32 age;
-    char name [11];
+    char name [NAME_LENGTH];
 
     friend auto operator << (std::ostream& ostream, const Record& record) -> std::ostream& {
         ostream << "(" << record.id << ", " << record.age << ", " << record.name << ")";
         return ostream;
     }
 };
+
 
 auto main() -> int {
     Property const property(
