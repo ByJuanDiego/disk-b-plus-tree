@@ -23,7 +23,7 @@ struct DataPage {
     int32 num_records;
     int64 next_leaf;
     int64 prev_leaf;
-    RecordType* records;
+    std::vector<RecordType> records;
 
     auto static get_expected_capacity() -> int32;
 

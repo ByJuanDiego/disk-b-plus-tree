@@ -11,6 +11,7 @@
 #include <sstream>
 #include <cstring>
 #include <utility>
+#include <vector>
 
 #include "buffer_size.hpp"
 #include "error_handler.hpp"
@@ -21,13 +22,15 @@ template <typename KeyType>
 struct IndexPage {
     int32 capacity;           // The maximum capacity of keys and children arrays.
     int32 num_keys;           // The current number of keys stored in the page.
-    KeyType* keys;            // An array of keys stored in the page.
-    int64* children;          // An array of child pointers corresponding to the keys.
+    std::vector<KeyType> keys;
+    std::vector<int64> children;
     bool points_to_leaf;      // Indicates whether this index page points to a leaf node.
 
     auto static get_expected_capacity() -> int32;
 
-    explicit IndexPage(int32 children_capacity);
+    explicit IndexPage(int32 children_capacity, bool points_to_leaf = true);
+
+    IndexPage(const IndexPage<KeyType>& other);
 
     ~IndexPage();
 
@@ -50,6 +53,7 @@ struct IndexPage {
 
     auto split(int32 min_index_page_keys, KeyType& new_index_page_key) -> IndexPage<KeyType>;
 };
+
 
 
 #include "index_page.tpp"

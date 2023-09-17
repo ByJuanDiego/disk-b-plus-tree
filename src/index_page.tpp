@@ -6,17 +6,29 @@
 
 
 template <typename KeyType>
-IndexPage<KeyType>::IndexPage(int32 children_capacity) : capacity(children_capacity), num_keys(0), points_to_leaf(true) {
-    keys = new KeyType[capacity];
-    children = new int64[capacity + 1];
+IndexPage<KeyType>::IndexPage(int32 children_capacity, bool points_to_leaf)
+    : capacity(children_capacity), num_keys(0), points_to_leaf(points_to_leaf),
+      keys(capacity, KeyType()), children(capacity + 1, emptyPage) {
+}
+
+
+template<typename KeyType>
+IndexPage<KeyType>::IndexPage(const IndexPage<KeyType> &other)
+        : capacity(other.capacity), num_keys(other.num_keys),
+          points_to_leaf(other.points_to_leaf), keys(capacity, KeyType()), children(capacity + 1, emptyPage) {
+
+    for (int i = 0; i < num_keys; ++i) {
+        keys[i] = other.keys[i];
+    }
+
+    for (int i = 0; i < num_keys + 1; ++i) {
+        children[i] = other.children[i];
+    }
 }
 
 
 template <typename KeyType>
-IndexPage<KeyType>::~IndexPage() {
-    delete[] keys;
-    delete[] children;
-}
+IndexPage<KeyType>::~IndexPage() = default;
 
 
 template <typename KeyType>

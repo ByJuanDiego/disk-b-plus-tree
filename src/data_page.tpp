@@ -6,9 +6,7 @@
 
 
 template<typename RecordType>
-DataPage<RecordType>::~DataPage() {
-    delete [] records;
-}
+DataPage<RecordType>::~DataPage() = default;
 
 
 template<typename RecordType>
@@ -23,7 +21,10 @@ DataPage<RecordType>::DataPage(DataPage &&other) noexcept
           num_records(other.num_records),
           next_leaf(other.next_leaf),
           prev_leaf(other.prev_leaf),
-          records(std::exchange(other.records, nullptr)) {
+          records(capacity, RecordType()){
+    for (int i = 0; i < num_records; ++i) {
+        records[i] = other.records[i];
+    }
 }
 
 
@@ -32,11 +33,9 @@ DataPage<RecordType>::DataPage(const DataPage &other)
         : capacity(std::move(other.capacity)),
           num_records(std::move(other.num_records)),
           next_leaf(std::move(other.next_leaf)),
-          prev_leaf(std::move((other.prev_leaf))) {
-
-    records = new RecordType[capacity];
-
-    for (int i = 0; i < num_records; i++){
+          prev_leaf(std::move((other.prev_leaf))),
+          records(capacity, RecordType()) {
+    for (int i = 0; i < num_records; ++i){
         records[i] = other.records[i];
     }
 }
@@ -44,8 +43,7 @@ DataPage<RecordType>::DataPage(const DataPage &other)
 
 template<typename RecordType>
 DataPage<RecordType>::DataPage(int32 records_capacity)
-        : capacity(records_capacity), num_records(0), next_leaf(emptyPage), prev_leaf(emptyPage) {
-    records = new RecordType[records_capacity];
+        : capacity(records_capacity), num_records(0), next_leaf(emptyPage), prev_leaf(emptyPage), records(capacity, RecordType()) {
 }
 
 
@@ -166,9 +164,9 @@ void DataPage<RecordType>::sorted_insert(RecordType &record, Greater greater_to,
 template<typename RecordType>
 auto DataPage<RecordType>::split(int32 min_data_page_records) {
     DataPage<RecordType> new_data_page(this->capacity);
-    new_data_page.num_records = std::floor(this->capacity / 2.0);
+    int32 new_data_page_num_records = std::floor(this->capacity / 2.0);
 
-    for (int i = 0; i < new_data_page.num_records; ++i) {
+    for (int i = 0; i < new_data_page_num_records; ++i) {
         new_data_page.push_back(this->records[i + min_data_page_records + 1]);
     }
 

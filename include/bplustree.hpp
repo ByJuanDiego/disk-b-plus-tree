@@ -8,6 +8,7 @@
 
 #include <vector>
 #include <functional>
+#include <queue>
 
 #include "pages.hpp"
 #include "property.hpp"
@@ -31,6 +32,8 @@ private:
     Greater greater_to;
     Index get_indexed_field;
 
+    auto create_index() -> void;
+
     auto load_metadata() -> void;
 
     auto save_metadata() -> void;
@@ -43,9 +46,15 @@ private:
 
     auto locate_data_page(const KeyType& key) -> int64;
 
-    auto create_index() -> void;
-
     auto insert(int64 seek_page, PageType type, RecordType& record) -> InsertStatus;
+
+    auto balance_data_page(IndexPage<KeyType>& index_page, int32 child_pos, int64 seek_page, int64 child_seek) -> void;
+
+    auto balance_index_page(IndexPage<KeyType>& index_page, int32 child_pos, int64 seek_page, int64 child_seek) -> void;
+
+    auto balance_root_data_page() -> void;
+
+    auto balance_root_index_page() -> void;
 
 public:
 
