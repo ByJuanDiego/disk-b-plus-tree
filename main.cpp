@@ -43,21 +43,19 @@ auto main() -> int {
 
     BPlusTree<int32, Record> tree(property, get_indexed_field);
 
-//    for (int i = 0; i < data_page_capacity ; ++i) {
-//        const std::string name_ = "user " + std::to_string(i);
-//        const char * name = name_.c_str();
-//        const int age = i % 30;
-//        Record record(i, name, age);
-//        tree.insert(record);
-//    }
-//
+    for (int i = 1; i <= 100'000; ++i) {
+        const std::string name_ = "user " + std::to_string(i);
+        const char * name = name_.c_str();
+        const int age = i % 30;
+        Record record(i, name, age);
+        tree.insert(record);
+    }
 
-    const int lower = -1;
-    const int upper = 100;
+    const int lower = 500;
+    const int upper = 800;
     std::vector<Record> const recovered = tree.between(lower, upper);
-
     for (const Record& record: recovered) {
-        std::cout << record << '\n';
+        std::cout << record.id << '\n';
     }
 
     return EXIT_SUCCESS;

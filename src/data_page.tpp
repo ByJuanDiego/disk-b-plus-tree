@@ -162,14 +162,13 @@ void DataPage<RecordType>::sorted_insert(RecordType &record, Greater greater_to,
 
 
 template<typename RecordType>
-auto DataPage<RecordType>::split(int32 min_data_page_records) {
+auto DataPage<RecordType>::split(int32 new_data_page_num_records) {
     DataPage<RecordType> new_data_page(this->capacity);
-    int32 new_data_page_num_records = std::floor(this->capacity / 2.0);
 
     for (int i = 0; i < new_data_page_num_records; ++i) {
-        new_data_page.push_back(this->records[i + min_data_page_records + 1]);
+        new_data_page.push_back(this->records[i + new_data_page_num_records]);
     }
 
-    this->num_records = min_data_page_records + 1;
+    num_records -= new_data_page_num_records;
     return new_data_page;
 }

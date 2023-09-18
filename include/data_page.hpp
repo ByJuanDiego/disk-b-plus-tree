@@ -59,7 +59,7 @@ struct DataPage {
     template <typename KeyType, typename Greater, typename Index>
     void sorted_insert(RecordType& record, Greater greater_to, Index get_indexed_field);
 
-    auto split(int32 min_data_page_records);
+    auto split(int32 new_data_page_num_records);
 };
 
 

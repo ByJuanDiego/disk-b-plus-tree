@@ -4,7 +4,6 @@
 
 #include "index_page.hpp"
 
-
 template <typename KeyType>
 IndexPage<KeyType>::IndexPage(int32 children_capacity, bool points_to_leaf)
     : capacity(children_capacity), num_keys(0), points_to_leaf(points_to_leaf),
@@ -103,21 +102,24 @@ auto IndexPage<KeyType>::push_front(KeyType& key, int64 child) -> void {
     }
 
     keys[0] = key;
-    children[1] = child;
+    children[0] = child;
     ++num_keys;
 }
 
 
 template<typename KeyType>
 auto IndexPage<KeyType>::push_back(KeyType &key, int64 child) -> void {
-    keys[0] = key;
-    children[0] = child;
-    num_keys++;
+    if (num_keys == capacity) {
+        throw FullPage();
+    }
+
+    keys[num_keys] = key;
+    children[++num_keys] = child;
 }
 
 
 template <typename KeyType>
-auto IndexPage<KeyType>::reallocate_references_to_data_pages(int64 child_pos, KeyType& new_key, int64 new_page_seek) -> void {
+auto IndexPage<KeyType>::reallocate_references(int64 child_pos, KeyType& new_key, int64 new_page_seek) -> void {
     for (int i = num_keys; i > child_pos; --i) {
         keys[i] = keys[i - 1];
         children[i + 1] = children[i];
@@ -128,49 +130,16 @@ auto IndexPage<KeyType>::reallocate_references_to_data_pages(int64 child_pos, Ke
     ++num_keys;
 }
 
-
 template <typename KeyType>
-auto IndexPage<KeyType>::reallocate_references_to_index_pages(int64 child_pos, KeyType& new_key, int64 new_page_seek) -> void {
-    for (int i = num_keys; i > child_pos; --i) {
-        keys[i] = keys[i - 1];
-        children[i + 1] = children[i];
+auto IndexPage<KeyType>::split(int32 new_key_pos, KeyType& new_index_page_key) -> IndexPage<KeyType> {
+    IndexPage<KeyType> new_index_page(capacity, points_to_leaf);
+
+    for (int i = new_key_pos + 1; i < num_keys; ++i) {
+        new_index_page.push_back(keys[i], children[i]);
     }
-
-    keys[child_pos] = new_key;
-    children[child_pos + 1] = new_page_seek;
-    ++num_keys;
-}
-
-
-template <typename KeyType>
-template <typename Greater>
-auto IndexPage<KeyType>::sorted_insert(KeyType& key, int64 children_seek, Greater greater_to) -> void {
-    int key_pos = num_keys - 1;
-    while (key_pos >= 0 && greater_to(keys[key_pos], key)) {
-        keys[key_pos + 1] = keys[key_pos];
-        children[key_pos + 2] = children[key_pos + 1];
-        --key_pos;
-    }
-    keys[key_pos + 1] = key;
-    children[key_pos + 2] = children_seek;
-    ++num_keys;
-}
-
-
-template <typename KeyType>
-auto IndexPage<KeyType>::split(int32 min_index_page_keys, KeyType& new_index_page_key) -> IndexPage<KeyType> {
-    IndexPage<KeyType> new_index_page(this->capacity);
-    new_index_page.num_keys = min_index_page_keys;
-
-    for (int i = 0; i < new_index_page.num_keys; ++i) {
-        int const index = min_index_page_keys + i + 1;
-        new_index_page.push_back(this->keys[index], this->children[index]);
-    }
-
-    int32 new_key_pos = std::floor(capacity / 2.0);
-    new_index_page_key = this->keys[new_key_pos];
-    new_index_page.children[new_index_page.num_keys] = this->children[num_keys];
-    num_keys = new_key_pos;
+    new_index_page.children[new_index_page.num_keys] = children[num_keys];
+    new_index_page_key = keys[new_key_pos];
+    num_keys -= (new_index_page.num_keys + 1);
 
     return new_index_page;
 }

@@ -44,14 +44,9 @@ struct IndexPage {
 
     auto push_back(KeyType& key, int64 child) -> void;
 
-    auto reallocate_references_to_data_pages(int64 child_pos, KeyType& new_key, int64 new_page_seek) -> void;
+    auto reallocate_references(int64 child_pos, KeyType& new_key, int64 new_page_seek) -> void;
 
-    auto reallocate_references_to_index_pages(int64 child_pos, KeyType& new_key, int64 new_page_seek) -> void;
-
-    template <typename Greater>
-    auto sorted_insert(KeyType& key, int64 children_seek, Greater greater_to) -> void;
-
-    auto split(int32 min_index_page_keys, KeyType& new_index_page_key) -> IndexPage<KeyType>;
+    auto split(int32 new_key_pos, KeyType& new_index_page_key) -> IndexPage<KeyType>;
 };
 
 
