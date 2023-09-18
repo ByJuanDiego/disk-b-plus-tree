@@ -10,8 +10,12 @@ project(
 set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 
 add_executable(${PROJECT_NAME} main.cpp)
+add_executable(search_by_id examples/search_by_id.cpp)
+add_executable(test_between_by_id test/test_between_by_id.cpp)
 
-target_include_directories(${PROJECT_NAME} PRIVATE utils include src)
+target_include_directories(${PROJECT_NAME} PRIVATE utils include src models)
+target_include_directories(search_by_id PRIVATE utils include src models)
+target_include_directories(test_between_by_id PRIVATE utils include src models)
 
 target_sources(
         ${PROJECT_NAME}
@@ -20,17 +24,56 @@ target_sources(
         src/data_page.tpp
         src/index_page.tpp
         src/property.cpp
-
         utils/buffer_size.hpp
         utils/error_handler.hpp
         utils/file_utils.hpp
         utils/types.hpp
-
         include/bplustree.hpp
         include/data_page.hpp
         include/index_page.hpp
         include/pages.hpp
         include/property.hpp
+        models/record.hpp
+)
+
+target_sources(
+        test_between_by_id
+        PRIVATE
+        src/bplustree.tpp
+        src/data_page.tpp
+        src/index_page.tpp
+        src/property.cpp
+        utils/buffer_size.hpp
+        utils/error_handler.hpp
+        utils/file_utils.hpp
+        utils/types.hpp
+        include/bplustree.hpp
+        include/data_page.hpp
+        include/index_page.hpp
+        include/pages.hpp
+        include/property.hpp
+        models/record.hpp
+        test/test_between_by_id.cpp
+)
+
+target_sources(
+        search_by_id
+        PRIVATE
+        src/bplustree.tpp
+        src/data_page.tpp
+        src/index_page.tpp
+        src/property.cpp
+        utils/buffer_size.hpp
+        utils/error_handler.hpp
+        utils/file_utils.hpp
+        utils/types.hpp
+        include/bplustree.hpp
+        include/data_page.hpp
+        include/index_page.hpp
+        include/pages.hpp
+        include/property.hpp
+        models/record.hpp
+        examples/search_by_id.cpp
 )
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
@@ -80,3 +123,15 @@ target_link_libraries(
         PRIVATE
         ${JSONCPP_LINK_LIBRARIES}
     )
+
+target_link_libraries(
+        search_by_id
+        PRIVATE
+        ${JSONCPP_LINK_LIBRARIES}
+)
+
+target_link_libraries(
+        test_between_by_id
+        PRIVATE
+        ${JSONCPP_LINK_LIBRARIES}
+)
