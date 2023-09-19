@@ -10,9 +10,11 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+
 auto directory_exists(const std::string& path) -> bool {
     return std::filesystem::is_directory(path);
 }
+
 
 auto create_directory(const std::string& path) -> bool {
     // Create the directory path
@@ -34,5 +36,21 @@ auto create_directory(const std::string& path) -> bool {
 
     return true;
 }
+
+
+auto open(std::fstream &file, const std::string &file_name, std::ios::openmode mode_flags) -> void {
+    file.open(file_name, mode_flags);
+}
+
+
+auto close(std::fstream &file) -> void {
+    file.close();
+}
+
+auto seek(std::fstream &file, int64 pos, std::ios::seekdir offset = std::ios::beg) -> void {
+    file.seekg(pos, offset);
+    file.seekp(pos, offset);
+}
+
 
 #endif //B_PLUS_TREE_FILE_UTILS_HPP

@@ -47,28 +47,6 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::save_metadata() -> void {
 
 
 template<typename KeyType, typename RecordType, typename Greater, typename Index>
-auto BPlusTree<KeyType, RecordType, Greater, Index>::open(std::fstream &file, const std::string &file_name,
-                                                          std::ios::openmode mode_flags) -> void {
-
-    file.open(file_name, mode_flags);
-}
-
-
-template<typename KeyType, typename RecordType, typename Greater, typename Index>
-auto BPlusTree<KeyType, RecordType, Greater, Index>::close(std::fstream &file) -> void {
-    file.close();
-}
-
-
-template<typename KeyType, typename RecordType, typename Greater, typename Index>
-auto BPlusTree<KeyType, RecordType, Greater, Index>::seek_all(std::fstream &file, int64 pos,
-                                                              std::ios::seekdir offset) -> void {
-    file.seekg(pos, offset);
-    file.seekp(pos, offset);
-}
-
-
-template<typename KeyType, typename RecordType, typename Greater, typename Index>
 auto BPlusTree<KeyType, RecordType, Greater, Index>::locate_data_page(const KeyType &key) -> int64 {
     switch (metadata_json[ROOT_STATUS].asInt()) {
         case emptyPage: {
@@ -84,7 +62,7 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::locate_data_page(const KeyT
             IndexPage<KeyType> index_page(metadata_json[INDEX_PAGE_CAPACITY].asInt());
 
             do {
-                seek_all(b_plus_index_file, seek_page);
+                (b_plus_index_file, seek_page);
                 index_page.read(b_plus_index_file);
                 int child_pos = 0;
                 while ((child_pos < index_page.num_keys) && greater_to(key, index_page.keys[child_pos])) {
@@ -105,16 +83,16 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::insert(int64 seek_page, Pag
                                                             RecordType &record) -> InsertStatus {
     if (type == dataPage) {
         DataPage<RecordType> data_page(metadata_json[DATA_PAGE_CAPACITY].asInt());
-        seek_all(b_plus_index_file, seek_page);
+        seek(b_plus_index_file, seek_page);
         data_page.read(b_plus_index_file);
         data_page.template sorted_insert<KeyType, Greater, Index>(record, greater_to, get_indexed_field);
-        seek_all(b_plus_index_file, seek_page);
+        seek(b_plus_index_file, seek_page);
         data_page.write(b_plus_index_file);
         return InsertStatus {data_page.num_records};
     }
 
     IndexPage<KeyType> index_page(metadata_json[INDEX_PAGE_CAPACITY].asInt());
-    seek_all(b_plus_index_file, seek_page);
+    seek(b_plus_index_file, seek_page);
     index_page.read(b_plus_index_file);
 
     int child_pos = 0;
@@ -139,23 +117,23 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::insert(int64 seek_page, Pag
 template<typename KeyType, typename RecordType, typename Greater, typename Index>
 auto BPlusTree<KeyType, RecordType, Greater, Index>::balance_index_page(IndexPage<KeyType>& index_page, int32 child_pos, int64 seek_page, int64 child_seek) -> void {
     IndexPage<KeyType> full_page(metadata_json[INDEX_PAGE_CAPACITY].asInt());
-    seek_all(b_plus_index_file, child_seek);
+    seek(b_plus_index_file, child_seek);
     full_page.read(b_plus_index_file);
 
     KeyType new_index_page_key {};
     IndexPage<KeyType> new_page = full_page.split(metadata_json[NEW_INDEX_PAGE_KEY_POS].asInt(), new_index_page_key);
 
-    seek_all(b_plus_index_file, 0, std::ios::end);
+    seek(b_plus_index_file, 0, std::ios::end);
     int64 new_page_seek = b_plus_index_file.tellp();
     new_page.write(b_plus_index_file);
 
-    seek_all(b_plus_index_file, child_seek);
+    seek(b_plus_index_file, child_seek);
     full_page.write(b_plus_index_file);
 
     index_page.reallocate_references(child_pos, new_index_page_key, new_page_seek);
 
     // Seek to the location of the parent index page in the index file and update it
-    seek_all(b_plus_index_file, seek_page);
+    seek(b_plus_index_file, seek_page);
     index_page.write(b_plus_index_file);
 }
 
@@ -164,14 +142,14 @@ template<typename KeyType, typename RecordType, typename Greater, typename Index
 auto BPlusTree<KeyType, RecordType, Greater, Index>::balance_data_page(IndexPage<KeyType>& index_page, int32 child_pos, int64 seek_page, int64 child_seek) -> void {
     // Load the full data page from disk
     DataPage<RecordType> full_page(metadata_json[DATA_PAGE_CAPACITY].asInt());
-    seek_all(b_plus_index_file, child_seek);
+    seek(b_plus_index_file, child_seek);
     full_page.read(b_plus_index_file);
 
     // Create a new data page to accommodate the split
     DataPage<RecordType> new_page = full_page.split(metadata_json[NEW_DATA_PAGE_NUM_RECORDS].asInt());
 
     // Seek to the end of the B+Tree index file to append the new page
-    seek_all(b_plus_index_file, 0, std::ios::end);
+    seek(b_plus_index_file, 0, std::ios::end);
     int64 new_page_seek = b_plus_index_file.tellp();
 
     // Set the previous leaf pointer of the new page
@@ -184,7 +162,7 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::balance_data_page(IndexPage
     full_page.next_leaf = new_page_seek;
 
     // Seek to the location of the old page in the index file and update it
-    seek_all(b_plus_index_file, child_seek);
+    seek(b_plus_index_file, child_seek);
     full_page.write(b_plus_index_file);
 
     // Calculate the key to insert in the parent index page
@@ -195,7 +173,7 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::balance_data_page(IndexPage
     index_page.reallocate_references(child_pos, new_index_page_key, new_page_seek);
 
     // Seek to the location of the parent index page in the index file and update it
-    seek_all(b_plus_index_file, seek_page);
+    seek(b_plus_index_file, seek_page);
     index_page.write(b_plus_index_file);
 }
 
@@ -203,17 +181,17 @@ template<typename KeyType, typename RecordType, typename Greater, typename Index
 auto BPlusTree<KeyType, RecordType, Greater, Index>::balance_root_data_page() -> void {
     DataPage<RecordType> old_root(metadata_json[DATA_PAGE_CAPACITY].asInt());
     int64 old_root_seek = metadata_json[SEEK_ROOT].asLargestInt();
-    seek_all(b_plus_index_file, old_root_seek);
+    seek(b_plus_index_file, old_root_seek);
     old_root.read(b_plus_index_file);
 
     DataPage<RecordType> new_page = old_root.split(metadata_json[NEW_DATA_PAGE_NUM_RECORDS].asInt());
     new_page.prev_leaf = old_root_seek;
-    seek_all(b_plus_index_file, 0, std::ios::end);
+    seek(b_plus_index_file, 0, std::ios::end);
     int64 new_page_seek = b_plus_index_file.tellp();
     new_page.write(b_plus_index_file);
 
     old_root.next_leaf = new_page_seek;
-    seek_all(b_plus_index_file, old_root_seek);
+    seek(b_plus_index_file, old_root_seek);
     old_root.write(b_plus_index_file);
 
     IndexPage<KeyType> new_root(metadata_json[INDEX_PAGE_CAPACITY].asInt());
@@ -223,7 +201,7 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::balance_root_data_page() ->
     new_root.children[1] = new_page_seek;
     new_root.num_keys = 1;
 
-    seek_all(b_plus_index_file, 0, std::ios::end);
+    seek(b_plus_index_file, 0, std::ios::end);
     int64 new_root_seek = b_plus_index_file.tellp();
     new_root.write(b_plus_index_file);
 
@@ -236,16 +214,16 @@ template<typename KeyType, typename RecordType, typename Greater, typename Index
 auto BPlusTree<KeyType, RecordType, Greater, Index>::balance_root_index_page() -> void {
     int64 old_root_seek = metadata_json[SEEK_ROOT].asLargestInt();
     IndexPage<KeyType> old_root(metadata_json[INDEX_PAGE_CAPACITY].asInt());
-    seek_all(b_plus_index_file, old_root_seek);
+    seek(b_plus_index_file, old_root_seek);
     old_root.read(b_plus_index_file);
 
     KeyType new_root_key {};
     IndexPage<KeyType> new_page = old_root.split(metadata_json[NEW_INDEX_PAGE_KEY_POS].asInt(), new_root_key);
-    seek_all(b_plus_index_file, 0, std::ios::end);
+    seek(b_plus_index_file, 0, std::ios::end);
     int64 new_page_seek = b_plus_index_file.tellp();
     new_page.write(b_plus_index_file);
 
-    seek_all(b_plus_index_file, old_root_seek);
+    seek(b_plus_index_file, old_root_seek);
     old_root.write(b_plus_index_file);
 
     IndexPage<KeyType> new_root(metadata_json[INDEX_PAGE_CAPACITY].asInt(), false);
@@ -254,7 +232,7 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::balance_root_index_page() -
     new_root.children[0] = old_root_seek;
     new_root.children[1] = new_page_seek;
 
-    seek_all(b_plus_index_file, 0, std::ios::end);
+    seek(b_plus_index_file, 0, std::ios::end);
     int64 new_root_seek = b_plus_index_file.tellp();
     new_root.write(b_plus_index_file);
     metadata_json[SEEK_ROOT] = new_root_seek;
@@ -287,7 +265,7 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::insert(RecordType &record) 
     if (root_page_type == emptyPage) {
         DataPage<RecordType> data_page(metadata_json[DATA_PAGE_CAPACITY].asInt());
         data_page.push_back(record);
-        seek_all(b_plus_index_file, 0);
+        seek(b_plus_index_file, 0);
         data_page.write(b_plus_index_file);
         metadata_json[SEEK_ROOT] = 0;
         metadata_json[ROOT_STATUS] = dataPage;
@@ -321,7 +299,7 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::search(const KeyType &key) 
     DataPage<RecordType> data_page(metadata_json[DATA_PAGE_CAPACITY].asInt());
 
     do {
-        seek_all(b_plus_index_file, seek_page);
+        seek(b_plus_index_file, seek_page);
         data_page.read(b_plus_index_file);
 
         for (int i = 0; i < data_page.num_records; ++i) {
@@ -355,7 +333,7 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::between(const KeyType &lowe
     DataPage<RecordType> data_page(metadata_json[DATA_PAGE_CAPACITY].asInt());
 
     do {
-        seek_all(b_plus_index_file, seek_page);
+        seek(b_plus_index_file, seek_page);
         data_page.read(b_plus_index_file);
         for (int i = 0; i < data_page.num_records; ++i) {
             if (greater_to(lower_bound, get_indexed_field(data_page.records[i]))) {

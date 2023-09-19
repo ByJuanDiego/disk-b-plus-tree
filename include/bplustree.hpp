@@ -38,12 +38,6 @@ private:
 
     auto save_metadata() -> void;
 
-    auto open(std::fstream & file, const std::string& file_name, std::ios::openmode mode_flags) -> void;
-
-    auto close(std::fstream& file) -> void;
-
-    auto seek_all(std::fstream& file, int64 pos, std::ios::seekdir offset = std::ios::beg) -> void;
-
     auto locate_data_page(const KeyType& key) -> int64;
 
     auto insert(int64 seek_page, PageType type, RecordType& record) -> InsertStatus;
