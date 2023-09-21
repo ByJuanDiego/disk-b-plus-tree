@@ -36,6 +36,7 @@ target_sources(
         include/pages.hpp
         include/property.hpp
         models/record.hpp
+        main.cpp
 )
 
 target_sources(

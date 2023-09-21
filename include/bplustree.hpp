@@ -61,8 +61,6 @@ public:
     auto between(const KeyType& lower_bound, const KeyType& upper_bound) -> std::vector<RecordType>;
 
     auto remove(KeyType& key) -> void;
-
-    auto print(std::ostream & ostream) -> void;
 };
 
 

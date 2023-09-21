@@ -25,7 +25,7 @@ struct Record {
     }
 
     friend auto operator << (std::ostream& ostream, const Record& record) -> std::ostream& {
-        ostream << record.id;
+        ostream << "(" << record.id << ", " << record.name << ", " << record.age << ")";
         return ostream;
     }
 };
