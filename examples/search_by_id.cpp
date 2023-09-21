@@ -1,44 +1,62 @@
-//
-// Created by juan diego on 9/17/23.
-//
-
 #include <iostream>
+#include <chrono>
+
 #include "bplustree.hpp"
 #include "record.hpp"
 
-auto main() -> int {
-    int32 const index_page_capacity = IndexPage<int32>::get_expected_capacity();
-    int32 const data_page_capacity = DataPage<Record>::get_expected_capacity();
-    bool const unique = true;
 
-    Property const property(
-            "./index/record/",
-            "index_by_id_metadata.json",
-            "index_by_id.dat",
+auto main(int argc, char* argv[]) -> int {
+    const std::string& directory_path = "./index/index_by_id/";
+    const std::string& metadata_file_name = "metadata.json";
+    const std::string& index_file_name = "btree.dat";
+
+    const int32 index_page_capacity = IndexPage<int32>::get_expected_capacity();
+    const int32 data_page_capacity = DataPage<Record>::get_expected_capacity();
+    const bool unique_key = true;
+
+    const Property props(
+            directory_path,
+            metadata_file_name,
+            index_file_name,
             index_page_capacity,
             data_page_capacity,
-            unique
+            unique_key
     );
 
-    std::function<int32(Record&)> const get_indexed_field = [](Record& record) {
+    const std::function<int32(Record&)> index_by_id = [](Record& record) -> int32 {
         return record.id;
     };
 
-    BPlusTree<int32, Record> tree(property, get_indexed_field);
+    BPlusTree<int32, Record> btree(props, index_by_id);
 
-    for (int i = 1; i <= 100'000; ++i) {
-        const std::string name_ = "user " + std::to_string(i);
-        const char * name = name_.c_str();
-        const int age = i % 30;
-        Record record(i, name, age);
-        tree.insert(record);
-    }
+    std::function<void(const std::function<void()>&)> const measure_execution_time = [] (const std::function<void()>& procedure) {
+        auto start_time = std::chrono::high_resolution_clock::now();
+        procedure();
+        auto end_time = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> const duration = end_time - start_time;
+        std::cout << "Execution time: " << duration.count() << " seconds\n";
+    };
 
-    const int lower_bound = 500;
-    const int upper_bound = 800;
+    std::vector<Record> recovered;
 
-    std::vector<Record> const recovered = tree.between(lower_bound, upper_bound);
-    for (const Record& record: recovered) {
-        std::cout << record << '\n';
-    }
+    int lower_bound = -1;
+    int upper_bound = -1;
+
+    std::cout << "Lower Bound: ";
+    std::cin >> lower_bound;
+
+    std::cout << "Upper Bound: ";
+    std::cin >> upper_bound;
+
+    measure_execution_time([&](){
+        recovered = btree.between(lower_bound, upper_bound);
+    });
+
+    std::cout << recovered.size() << " rows recovered" << "\n";
+
+//    for (const Record& record: recovered) {
+//        std::cout << record << "\n";
+//    }
+
+    return 0;
 }
