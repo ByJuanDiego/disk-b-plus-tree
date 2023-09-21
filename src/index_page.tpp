@@ -98,7 +98,10 @@ auto IndexPage<KeyType>::push_front(KeyType& key, int64 child) -> void {
 
     for (int i = num_keys; i > 0; --i) {
         keys[i] = keys[i - 1];
-        children[i + 1] = children[i];
+    }
+
+    for (int i = num_keys + 1; i > 0; --i) {
+        children[i] = children[i - 1];
     }
 
     keys[0] = key;
@@ -114,12 +117,13 @@ auto IndexPage<KeyType>::push_back(KeyType &key, int64 child) -> void {
     }
 
     keys[num_keys] = key;
-    children[++num_keys] = child;
+    children[num_keys + 1] = child;
+    ++num_keys;
 }
 
 
 template <typename KeyType>
-auto IndexPage<KeyType>::reallocate_references(int64 child_pos, KeyType& new_key, int64 new_page_seek) -> void {
+auto IndexPage<KeyType>::reallocate_references(int32 child_pos, KeyType& new_key, int64 new_page_seek) -> void {
     for (int i = num_keys; i > child_pos; --i) {
         keys[i] = keys[i - 1];
         children[i + 1] = children[i];
@@ -135,9 +139,10 @@ auto IndexPage<KeyType>::split(int32 new_key_pos, KeyType& new_index_page_key) -
     IndexPage<KeyType> new_index_page(capacity, points_to_leaf);
 
     for (int i = new_key_pos + 1; i < num_keys; ++i) {
-        new_index_page.push_back(keys[i], children[i]);
+        new_index_page.push_back(keys[i], children[i + 1]);
     }
-    new_index_page.children[new_index_page.num_keys] = children[num_keys];
+    new_index_page.children[0] = children[new_key_pos + 1];
+
     new_index_page_key = keys[new_key_pos];
     num_keys -= (new_index_page.num_keys + 1);
 

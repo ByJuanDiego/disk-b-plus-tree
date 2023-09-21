@@ -149,10 +149,13 @@ auto DataPage<RecordType>::max_record() -> RecordType  {
 template<typename RecordType>
 template<typename KeyType, typename Greater, typename Index>
 void DataPage<RecordType>::sorted_insert(RecordType &record, Greater greater_to, Index get_indexed_field) {
+    if (num_records == capacity) {
+        throw FullPage();
+    }
 
     KeyType key = get_indexed_field(record);
     int record_pos = num_records;
-    while (record_pos >= 1 && greater_to(get_indexed_field(records[record_pos]), key)) {
+    while (record_pos >= 1 && greater_to(get_indexed_field(records[record_pos - 1]), key)) {
         records[record_pos] = records[record_pos - 1];
         --record_pos;
     }
@@ -162,13 +165,13 @@ void DataPage<RecordType>::sorted_insert(RecordType &record, Greater greater_to,
 
 
 template<typename RecordType>
-auto DataPage<RecordType>::split(int32 new_data_page_num_records) {
-    DataPage<RecordType> new_data_page(this->capacity);
+auto DataPage<RecordType>::split(int32 minimum_data_page_num_records) {
+    DataPage<RecordType> new_data_page(capacity);
 
-    for (int i = 0; i < new_data_page_num_records; ++i) {
-        new_data_page.push_back(this->records[i + new_data_page_num_records]);
+    for (int i = minimum_data_page_num_records; i < num_records; ++i) {
+        new_data_page.push_back(records[i]);
     }
 
-    num_records -= new_data_page_num_records;
+    num_records -= new_data_page.num_records;
     return new_data_page;
 }

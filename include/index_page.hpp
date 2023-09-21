@@ -44,7 +44,7 @@ struct IndexPage {
 
     auto push_back(KeyType& key, int64 child) -> void;
 
-    auto reallocate_references(int64 child_pos, KeyType& new_key, int64 new_page_seek) -> void;
+    auto reallocate_references(int32 child_pos, KeyType& new_key, int64 new_page_seek) -> void;
 
     auto split(int32 new_key_pos, KeyType& new_index_page_key) -> IndexPage<KeyType>;
 };

@@ -1,6 +1,7 @@
 //
-// Created by juan diego on 9/17/23.
+// Created by juan diego on 9/21/23.
 //
+
 
 #include <cassert>
 #include <iostream>
@@ -10,16 +11,41 @@
 #include "record.hpp"
 
 
-void search_test(BPlusTree<int32, Record>& tree, const int number_of_records, double const thresh_hold = 0.4) {
-    int const min = std::ceil(number_of_records * thresh_hold);
-    int const max = static_cast<int>(number_of_records - std::floor(number_of_records * thresh_hold));
+auto generate_random_vector(int32 number_of_records) -> std::vector<int32> {
+    std::vector<int32> arr(number_of_records);
+
+    // Fill the array with numbers from 1 to N
+    for (int32 i = 0; i < number_of_records; ++i) {
+        arr[i] = i + 1;
+    }
+
+    // Shuffle the array to make it unordered
+    std::random_device random_device;
+    std::mt19937 twister(random_device());
+    std::shuffle(arr.begin(), arr.end(), twister);
+
+    return arr;
+}
+
+
+void insert_records(BPlusTree<int32, Record>& tree, const std::vector<int32>& keys) {
+    for (int32 const key : keys) {
+        Record record {key, "u", 0};
+        tree.insert(record);
+    }
+}
+
+
+void search_test(BPlusTree<int32, Record>& tree, const int number_of_records) {
+    int const min = std::ceil(number_of_records * 0.4);
+    int const max = static_cast<int>(number_of_records - std::floor(number_of_records * 0.4));
 
     for (int32 j = min; j <= max; ++j) {
-        for (int32 k = j; k <= max; ++k) {
+        std::cout << "j: " << j << "\n";
+        for (int32 k = j; k <= number_of_records; ++k) {
             std::vector<Record> const recovered = tree.between(j, k);
             int const EXPECTED_SIZE = k - j + 1;
             std::size_t const SEARCH_SIZE = recovered.size();
-
             assert(EXPECTED_SIZE == SEARCH_SIZE);
         }
     }
@@ -57,8 +83,10 @@ auto main(int argc, char* argv[]) -> int {
         );
 
         BPlusTree<int32, Record> tree(property, get_indexed_field);
-        search_test(tree, NUMBER_OF_RECORDS);
-        std::cout << "\npassed test #" << TEST << "\n";
+
+        std::vector<int32> const records = generate_random_vector(NUMBER_OF_RECORDS);
+        insert_records(tree, records);
+        std::cout << "\nIndex #" << TEST << " created successfully\n";
     }
 
     return EXIT_SUCCESS;

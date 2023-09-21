@@ -42,7 +42,8 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::load_metadata() -> void {
 
 template<typename KeyType, typename RecordType, typename Greater, typename Index>
 auto BPlusTree<KeyType, RecordType, Greater, Index>::save_metadata() -> void {
-    metadata_file << metadata_json;
+    Json::StyledWriter styledWriter;
+    metadata_file << styledWriter.write(metadata_json);
 }
 
 
@@ -62,7 +63,7 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::locate_data_page(const KeyT
             IndexPage<KeyType> index_page(metadata_json[INDEX_PAGE_CAPACITY].asInt());
 
             do {
-                (b_plus_index_file, seek_page);
+                seek(b_plus_index_file, seek_page);
                 index_page.read(b_plus_index_file);
                 int child_pos = 0;
                 while ((child_pos < index_page.num_keys) && greater_to(key, index_page.keys[child_pos])) {
@@ -146,7 +147,7 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::balance_data_page(IndexPage
     full_page.read(b_plus_index_file);
 
     // Create a new data page to accommodate the split
-    DataPage<RecordType> new_page = full_page.split(metadata_json[NEW_DATA_PAGE_NUM_RECORDS].asInt());
+    DataPage<RecordType> new_page = full_page.split(metadata_json[MINIMUM_DATA_PAGE_RECORDS].asInt());
 
     // Seek to the end of the B+Tree index file to append the new page
     seek(b_plus_index_file, 0, std::ios::end);
@@ -155,7 +156,20 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::balance_data_page(IndexPage
     // Set the previous leaf pointer of the new page
     new_page.prev_leaf = child_seek;
 
+    int64 next_leaf_seek = full_page.next_leaf;
+    if (next_leaf_seek != emptyPage) {
+        new_page.next_leaf = next_leaf_seek;
+
+        DataPage<RecordType> next_page(metadata_json[DATA_PAGE_CAPACITY].asInt());
+        seek(b_plus_index_file, next_leaf_seek);
+        next_page.read(b_plus_index_file);
+        next_page.prev_leaf = new_page_seek;
+        seek(b_plus_index_file, next_leaf_seek);
+        next_page.write(b_plus_index_file);
+    }
+
     // Write the new data page to the B+Tree index file
+    seek(b_plus_index_file, new_page_seek);
     new_page.write(b_plus_index_file);
 
     // Update the next leaf pointer of the old page to point to the new page
@@ -184,7 +198,7 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::balance_root_data_page() ->
     seek(b_plus_index_file, old_root_seek);
     old_root.read(b_plus_index_file);
 
-    DataPage<RecordType> new_page = old_root.split(metadata_json[NEW_DATA_PAGE_NUM_RECORDS].asInt());
+    DataPage<RecordType> new_page = old_root.split(metadata_json[MINIMUM_DATA_PAGE_RECORDS].asInt());
     new_page.prev_leaf = old_root_seek;
     seek(b_plus_index_file, 0, std::ios::end);
     int64 new_page_seek = b_plus_index_file.tellp();
@@ -284,8 +298,8 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::insert(RecordType &record) 
 
     open(metadata_file, metadata_json[METADATA_FULL_PATH].asString(), std::ios::out);
     save_metadata();
-    close(metadata_file);
 
+    close(metadata_file);
     close(b_plus_index_file);
 }
 
@@ -340,7 +354,7 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::between(const KeyType &lowe
                 continue;
             }
             if (greater_to(get_indexed_field(data_page.records[i]), upper_bound)) {
-                b_plus_index_file.close();
+                close(b_plus_index_file);
                 if (located_records.empty()) {
                     throw KeyNotFound();
                 }
@@ -362,4 +376,85 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::between(const KeyType &lowe
 template<typename KeyType, typename RecordType, typename Greater, typename Index>
 auto BPlusTree<KeyType, RecordType, Greater, Index>::remove(KeyType &key) -> void {
     // TODO
+}
+
+template<typename KeyType, typename RecordType, typename Greater, typename Index>
+auto BPlusTree<KeyType, RecordType, Greater, Index>::print(std::ostream & ostream) -> void {
+if (metadata_json[SEEK_ROOT] == emptyPage) {
+return;
+}
+
+open(b_plus_index_file, metadata_json[INDEX_FULL_PATH].asString(), std::ios::in);
+std::queue<std::pair<IndexPage<KeyType>, int>> pq_index;
+std::queue<DataPage<RecordType>> pq_record;
+
+if (metadata_json[ROOT_STATUS].asInt() == dataPage) {
+seek(b_plus_index_file, metadata_json[SEEK_ROOT].asLargestInt());
+DataPage<RecordType> data_page(metadata_json[DATA_PAGE_CAPACITY].asInt());
+data_page.read(b_plus_index_file);
+ostream << "[";
+for (int i = 0; i < data_page.num_records; ++i) {
+ostream << data_page.records[i] << ",";
+}
+ostream << "]";
+} else {
+    seek(b_plus_index_file, metadata_json[SEEK_ROOT].asLargestInt());
+IndexPage<KeyType> index_page(metadata_json[INDEX_PAGE_CAPACITY].asInt());
+index_page.read(b_plus_index_file);
+int l = 0;
+pq_index.push({index_page, l});
+
+while (!pq_index.empty()) {
+std::pair<IndexPage<KeyType>, int> top = pq_index.front();
+pq_index.pop();
+
+if (top.second > l) {
+ostream << "\n";
+++l;
+}
+
+ostream << "[";
+for (int i = 0; i < top.first.num_keys; ++i) {
+ostream << top.first.keys[i] << ", ";
+if (top.first.points_to_leaf) {
+DataPage<RecordType> data_page(metadata_json[DATA_PAGE_CAPACITY].asInt());
+seek(b_plus_index_file, top.first.children[i]);
+data_page.read(b_plus_index_file);
+pq_record.push(data_page);
+} else {
+IndexPage<KeyType> index_(metadata_json[INDEX_PAGE_CAPACITY].asInt());
+    seek(b_plus_index_file, top.first.children[i]);
+index_.read(b_plus_index_file);
+pq_index.push({index_, l + 1});
+}
+}
+ostream << "]   ";
+
+if (top.first.points_to_leaf) {
+DataPage<RecordType> data_page(metadata_json[DATA_PAGE_CAPACITY].asInt());
+    seek(b_plus_index_file, top.first.children[top.first.num_keys]);
+data_page.read(b_plus_index_file);
+pq_record.push(data_page);
+} else {
+IndexPage<KeyType> index_(metadata_json[INDEX_PAGE_CAPACITY].asInt());
+    seek(b_plus_index_file, top.first.children[top.first.num_keys]);
+index_.read(b_plus_index_file);
+pq_index.push({index_, l + 1});
+}
+}
+
+ostream << '\n';
+while (!pq_record.empty()) {
+DataPage<RecordType> record = pq_record.front();
+pq_record.pop();
+ostream << "[prev: " << record.prev_leaf << " ";
+for (int i = 0; i < record.num_records; ++i) {
+ostream << record.records[i] << ", ";
+}
+ostream << "next: " << record.next_leaf << " n: " << record.num_records;
+ostream << "]\n";
+}
+}
+
+close(b_plus_index_file);
 }
