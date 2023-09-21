@@ -3,7 +3,6 @@
 //
 
 
-#include <cassert>
 #include <iostream>
 #include <algorithm>
 #include <random>
@@ -32,22 +31,6 @@ void insert_records(BPlusTree<int32, Record>& tree, const std::vector<int32>& ke
     for (int32 const key : keys) {
         Record record {key, "u", 0};
         tree.insert(record);
-    }
-}
-
-
-void search_test(BPlusTree<int32, Record>& tree, const int number_of_records) {
-    int const min = std::ceil(number_of_records * 0.4);
-    int const max = static_cast<int>(number_of_records - std::floor(number_of_records * 0.4));
-
-    for (int32 j = min; j <= max; ++j) {
-        std::cout << "j: " << j << "\n";
-        for (int32 k = j; k <= number_of_records; ++k) {
-            std::vector<Record> const recovered = tree.between(j, k);
-            int const EXPECTED_SIZE = k - j + 1;
-            std::size_t const SEARCH_SIZE = recovered.size();
-            assert(EXPECTED_SIZE == SEARCH_SIZE);
-        }
     }
 }
 
