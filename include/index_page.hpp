@@ -7,48 +7,49 @@
 
 
 #include <cmath>
+#include <vector>
 #include <fstream>
 #include <sstream>
 #include <cstring>
 #include <utility>
-#include <vector>
 
+#include "page.hpp"
 #include "buffer_size.hpp"
 #include "error_handler.hpp"
-#include "types.hpp"
 
 
 template <typename KeyType>
-struct IndexPage {
-    int32 capacity;           // The maximum capacity of keys and children arrays.
-    int32 num_keys;           // The current number of keys stored in the page.
+struct IndexPage: public Page<KeyType> {
+
+    std::int32_t num_keys;
     std::vector<KeyType> keys;
-    std::vector<int64> children;
-    bool points_to_leaf;      // Indicates whether this index page points to a leaf node.
+    std::vector<std::int64_t> children;
+    bool points_to_leaf;
 
-    auto static get_expected_capacity() -> int32;
-
-    explicit IndexPage(int32 children_capacity, bool points_to_leaf = true);
+    explicit IndexPage(std::int32_t capacity, bool points_to_leaf = true);
 
     IndexPage(const IndexPage<KeyType>& other);
 
     ~IndexPage();
 
-    auto size_of() -> int;
+    auto write(std::fstream &file)                                                                   -> void override;
 
-    auto write(std::fstream &file) -> void;
+    auto read(std::fstream &file)                                                                    -> void override;
 
-    auto read(std::fstream &file) -> void;
+    auto size_of()                                                                                   -> std::int32_t override;
 
-    auto push_front(KeyType& key, int64 child) -> void;
+    auto split(std::int32_t split_position)                                                          -> SplitResult<KeyType> override;
 
-    auto push_back(KeyType& key, int64 child) -> void;
+    auto push_front(KeyType& key, std::int64_t child)                                                -> void;
 
-    auto reallocate_references(int32 child_pos, KeyType& new_key, int64 new_page_seek) -> void;
+    auto push_back(KeyType& key, std::int64_t child)                                                 -> void;
 
-    auto split(int32 new_key_pos, KeyType& new_index_page_key) -> IndexPage<KeyType>;
+    auto reallocate_references(std::int32_t child_pos, KeyType& new_key, std::int64_t new_page_seek) -> void;
 };
 
+
+template <typename KeyType>
+auto get_expected_index_page_capacity() -> std::int32_t;
 
 
 #include "index_page.tpp"

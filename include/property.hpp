@@ -8,8 +8,6 @@
 #include <json/json.h>
 #include <cmath>
 
-#include "types.hpp"
-
 
 const std::string DIRECTORY_PATH = "directory_path";
 const std::string INDEX_PAGE_CAPACITY = "maximum_index_page_keys";
@@ -34,8 +32,8 @@ public:
     explicit Property(const std::string& directory_path,
                       const std::string& metadata_file_name,
                       const std::string& index_file_name,
-                      int32 index_page_capacity,
-                      int32 data_page_capacity,
+                      std::int32_t index_page_capacity,
+                      std::int32_t data_page_capacity,
                       bool unique_key);
 
     [[nodiscard]] auto json_value() const -> Json::Value;

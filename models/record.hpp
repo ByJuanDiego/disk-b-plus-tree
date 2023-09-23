@@ -8,19 +8,22 @@
 #include <cstring>
 #include <ostream>
 
-using int32 = int32_t;
-
 constexpr int NAME_LENGTH = 11;
 struct Record {
-    int32 id;
-    int32 age;
+    std::int32_t id;
+    std::int32_t age;
     char name [NAME_LENGTH];
 
     Record(): id(-1), age(-1), name("\0") {
     }
 
-    explicit Record(int32 _id, const char * _name, int32 _age): id(_id), age(_age), name("\0") {
+    explicit Record(std::int32_t _id, const char * _name, std::int32_t _age): id(_id), age(_age), name("\0") {
         strncpy(name, _name, NAME_LENGTH);
+        name[NAME_LENGTH - 1] = '\0';
+    }
+
+    explicit Record(std::int32_t _id, const std::string& _name, std::int32_t _age): id(_id), age(_age), name("\0") {
+        strncpy(name, _name.c_str(), NAME_LENGTH);
         name[NAME_LENGTH - 1] = '\0';
     }
 

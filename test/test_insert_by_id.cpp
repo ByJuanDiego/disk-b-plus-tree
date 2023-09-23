@@ -10,11 +10,11 @@
 #include "record.hpp"
 
 
-auto generate_random_vector(int32 number_of_records) -> std::vector<int32> {
-    std::vector<int32> arr(number_of_records);
+auto generate_random_vector(std::int32_t number_of_records) -> std::vector<std::int32_t> {
+    std::vector<std::int32_t> arr(number_of_records);
 
     // Fill the array with numbers from 1 to N
-    for (int32 i = 0; i < number_of_records; ++i) {
+    for (std::int32_t i = 0; i < number_of_records; ++i) {
         arr[i] = i + 1;
     }
 
@@ -27,8 +27,8 @@ auto generate_random_vector(int32 number_of_records) -> std::vector<int32> {
 }
 
 
-void insert_records(BPlusTree<int32, Record>& tree, const std::vector<int32>& keys) {
-    for (int32 const key : keys) {
+void insert_records(BPlusTree<std::int32_t, Record>& tree, const std::vector<std::int32_t>& keys) {
+    for (std::int32_t const key : keys) {
         Record record {key, "u", 0};
         tree.insert(record);
     }
@@ -36,19 +36,19 @@ void insert_records(BPlusTree<int32, Record>& tree, const std::vector<int32>& ke
 
 
 auto main(int argc, char* argv[]) -> int {
-    if (argc < 2) {
-        return EXIT_SUCCESS;
+    if (argc < 3) {
+        return EXIT_FAILURE;
     }
 
     int const NUMBER_OF_TESTS = atoi(argv[1]);
     int const NUMBER_OF_RECORDS = atoi(argv[2]);
 
-    int32 const index_page_capacity = IndexPage<int32>::get_expected_capacity() / 3;
-    int32 const data_page_capacity = DataPage<Record>::get_expected_capacity() / 3;
+    int const index_page_capacity = get_expected_index_page_capacity<std::int32_t>();
+    int const data_page_capacity = get_expected_data_page_capacity<Record>();
     bool const unique = true;
     std::string const path = "./index/record/";
 
-    std::function<int32(Record&)> const get_indexed_field = [](Record& record) {
+    std::function<std::int32_t(Record&)> const get_indexed_field = [](Record& record) {
         return record.id;
     };
 
@@ -65,11 +65,11 @@ auto main(int argc, char* argv[]) -> int {
                 unique
         );
 
-        BPlusTree<int32, Record> tree(property, get_indexed_field);
+        BPlusTree<std::int32_t, Record> btree(property, get_indexed_field);
 
-        std::vector<int32> const records = generate_random_vector(NUMBER_OF_RECORDS);
-        insert_records(tree, records);
-        std::cout << "\nIndex #" << TEST << " created successfully\n";
+        std::vector<std::int32_t> const records = generate_random_vector(NUMBER_OF_RECORDS);
+        insert_records(btree, records);
+        std::cout << "Index #" << TEST << " created successfully\n";
     }
 
     return EXIT_SUCCESS;

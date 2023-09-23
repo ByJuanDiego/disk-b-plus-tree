@@ -7,60 +7,54 @@
 
 
 #include <cmath>
+#include <vector>
 #include <fstream>
 #include <sstream>
 #include <cstring>
 #include <utility>
 
+#include "page.hpp"
 #include "buffer_size.hpp"
 #include "error_handler.hpp"
-#include "types.hpp"
 
 
-template <typename RecordType>
-struct DataPage {
-    int32 capacity;
-    int32 num_records;
-    int64 next_leaf;
-    int64 prev_leaf;
+template <typename KeyType, typename RecordType, typename Index>
+struct DataPage: public Page<KeyType> {
+
+    std::int32_t num_records;
+    std::int64_t next_leaf;
+    std::int64_t prev_leaf;
     std::vector<RecordType> records;
+    Index get_indexed_field;
 
-    auto static get_expected_capacity() -> int32;
-
-    explicit DataPage(int32 records_capacity);
+    explicit DataPage(std::int32_t capacity, const Index& index);
 
     DataPage(const DataPage& other);
 
     DataPage(DataPage&& other) noexcept;
 
-    ~DataPage();
+    ~DataPage() override;
 
-    auto size_of() -> int;
+    auto write(std::fstream & file)                            -> void override;
 
-    void write(std::fstream & file);
+    auto read(std::fstream & file)                             -> void override;
 
-    /**
-     * @brief Read data from an input file stream and populate the object's attributes.
-     *
-     * This function reads data from the provided input file stream and populates the
-     * object's attributes by copying the data from a binary buffer. It assumes that
-     * the buffer contains serialized data in a specific format.
-     *
-     * @param file An input file stream from which data is read.
-     */
-    void read(std::fstream & file);
+    auto size_of()                                             -> std::int32_t override;
 
-    void push_front(RecordType& record);
+    auto split(std::int32_t split_position)                    -> SplitResult<KeyType> override;
 
-    void push_back(RecordType& record);
+    auto push_front(RecordType& record)                        -> void;
 
-    auto max_record() -> RecordType;
+    auto push_back(RecordType& record)                         -> void;
 
-    template <typename KeyType, typename Greater, typename Index>
-    void sorted_insert(RecordType& record, Greater greater_to, Index get_indexed_field);
+    auto max_record()                                          -> RecordType;
 
-    auto split(int32 minimum_data_page_num_records);
+    template <typename Greater>
+    auto sorted_insert(RecordType& record, Greater greater_to) -> void;
 };
+
+template <typename RecordType>
+auto get_expected_data_page_capacity() -> std::int32_t;
 
 
 #include "data_page.tpp"

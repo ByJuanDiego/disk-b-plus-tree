@@ -10,7 +10,8 @@
 #include <functional>
 #include <queue>
 
-#include "pages.hpp"
+#include "data_page.hpp"
+#include "index_page.hpp"
 #include "property.hpp"
 #include "file_utils.hpp"
 
@@ -38,13 +39,13 @@ private:
 
     auto save_metadata() -> void;
 
-    auto locate_data_page(const KeyType& key) -> int64;
+    auto locate_data_page(const KeyType& key) -> std::int64_t;
 
-    auto insert(int64 seek_page, PageType type, RecordType& record) -> InsertStatus;
+    auto insert(std::int64_t seek_page, PageType type, RecordType& record) -> InsertStatus;
 
-    auto balance_data_page(IndexPage<KeyType>& index_page, int32 child_pos, int64 seek_page, int64 child_seek) -> void;
+    auto balance_data_page(IndexPage<KeyType>& index_page, std::int32_t child_pos, std::int64_t seek_page, std::int64_t child_seek) -> void;
 
-    auto balance_index_page(IndexPage<KeyType>& index_page, int32 child_pos, int64 seek_page, int64 child_seek) -> void;
+    auto balance_index_page(IndexPage<KeyType>& index_page, std::int32_t child_pos, std::int64_t seek_page, std::int64_t child_seek) -> void;
 
     auto balance_root_data_page() -> void;
 

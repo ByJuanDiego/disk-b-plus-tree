@@ -47,7 +47,7 @@ auto close(std::fstream &file) -> void {
     file.close();
 }
 
-auto seek(std::fstream &file, int64 pos, std::ios::seekdir offset = std::ios::beg) -> void {
+auto seek(std::fstream &file, std::int64_t pos, std::ios::seekdir offset = std::ios::beg) -> void {
     file.seekg(pos, offset);
     file.seekp(pos, offset);
 }

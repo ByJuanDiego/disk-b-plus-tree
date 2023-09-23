@@ -6,16 +6,18 @@
 #include <iostream>
 #include <algorithm>
 #include <random>
+
+
 #include "bplustree.hpp"
 #include "record.hpp"
 
 
-void search_test(BPlusTree<int32, Record>& tree, const int number_of_records, double const thresh_hold = 0.4) {
+void search_test(BPlusTree<std::int32_t, Record>& tree, const int number_of_records, double const thresh_hold = 0.45) {
     int const min = std::ceil(number_of_records * thresh_hold);
-    int const max = static_cast<int>(number_of_records - std::floor(number_of_records * thresh_hold));
+    int const max = static_cast<int>(number_of_records - min);
 
-    for (int32 j = min; j <= max; ++j) {
-        for (int32 k = j; k <= max; ++k) {
+    for (std::int32_t j = min; j <= max; ++j) {
+        for (std::int32_t k = j; k <= max; ++k) {
             std::vector<Record> const recovered = tree.between(j, k);
             int const EXPECTED_SIZE = k - j + 1;
             std::size_t const SEARCH_SIZE = recovered.size();
@@ -27,19 +29,19 @@ void search_test(BPlusTree<int32, Record>& tree, const int number_of_records, do
 
 
 auto main(int argc, char* argv[]) -> int {
-    if (argc < 2) {
-        return EXIT_SUCCESS;
+    if (argc < 3) {
+        return EXIT_FAILURE;
     }
 
     int const NUMBER_OF_TESTS = atoi(argv[1]);
     int const NUMBER_OF_RECORDS = atoi(argv[2]);
 
-    int32 const index_page_capacity = IndexPage<int32>::get_expected_capacity() / 3;
-    int32 const data_page_capacity = DataPage<Record>::get_expected_capacity() / 3;
+    std::int32_t const index_page_capacity = get_expected_index_page_capacity<std::int32_t>();
+    std::int32_t const data_page_capacity = get_expected_data_page_capacity<Record>();
     bool const unique = true;
     std::string const path = "./index/record/";
 
-    std::function<int32(Record&)> const get_indexed_field = [](Record& record) {
+    std::function<std::int32_t(Record&)> const get_indexed_field = [](Record& record) {
         return record.id;
     };
 
@@ -56,9 +58,9 @@ auto main(int argc, char* argv[]) -> int {
                 unique
         );
 
-        BPlusTree<int32, Record> tree(property, get_indexed_field);
-        search_test(tree, NUMBER_OF_RECORDS);
-        std::cout << "\npassed test #" << TEST << "\n";
+        BPlusTree<std::int32_t, Record> btree(property, get_indexed_field);
+        search_test(btree, NUMBER_OF_RECORDS);
+        std::cout << "Passed test for index #" << TEST << "\n";
     }
 
     return EXIT_SUCCESS;

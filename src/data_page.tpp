@@ -5,73 +5,64 @@
 #include "data_page.hpp"
 
 
-template<typename RecordType>
-DataPage<RecordType>::~DataPage() = default;
+template<typename KeyType, typename RecordType, typename Index>
+DataPage<KeyType, RecordType, Index>::~DataPage() = default;
 
 
-template<typename RecordType>
-auto DataPage<RecordType>::size_of() -> int {
-    return 2 * sizeof(int32) + 2 * sizeof(int64) + capacity * sizeof(RecordType);
+template<typename KeyType, typename RecordType, typename Index>
+auto DataPage<KeyType, RecordType, Index>::size_of() -> int {
+    return 2 * sizeof(std::int32_t) + 2 * sizeof(std::int64_t) + this->capacity * sizeof(RecordType);
 }
 
 
-template<typename RecordType>
-DataPage<RecordType>::DataPage(DataPage &&other) noexcept
-        : capacity(std::move(other.capacity)),
+template<typename KeyType, typename RecordType, typename Index>
+DataPage<KeyType, RecordType, Index>::DataPage(DataPage &&other) noexcept
+        : Page<KeyType>(std::move(other.capacity)),
           num_records(other.num_records),
           next_leaf(other.next_leaf),
           prev_leaf(other.prev_leaf),
-          records(capacity, RecordType()){
+          records(this->capacity, RecordType()){
     for (int i = 0; i < num_records; ++i) {
         records[i] = other.records[i];
     }
 }
 
 
-template<typename RecordType>
-DataPage<RecordType>::DataPage(const DataPage &other)
-        : capacity(std::move(other.capacity)),
+template<typename KeyType, typename RecordType, typename Index>
+DataPage<KeyType, RecordType, Index>::DataPage(const DataPage &other)
+        : Page<KeyType>(std::move(other.capacity)),
           num_records(std::move(other.num_records)),
           next_leaf(std::move(other.next_leaf)),
           prev_leaf(std::move((other.prev_leaf))),
-          records(capacity, RecordType()) {
+          records(this->capacity, RecordType()) {
     for (int i = 0; i < num_records; ++i){
         records[i] = other.records[i];
     }
 }
 
 
-template<typename RecordType>
-DataPage<RecordType>::DataPage(int32 records_capacity)
-        : capacity(records_capacity), num_records(0), next_leaf(emptyPage), prev_leaf(emptyPage), records(capacity, RecordType()) {
+template<typename KeyType, typename RecordType, typename Index>
+DataPage<KeyType, RecordType, Index>::DataPage(std::int32_t capacity, const Index& index)
+        : Page<KeyType>(capacity), num_records(0), next_leaf(emptyPage), prev_leaf(emptyPage),
+          records(this->capacity, RecordType()), get_indexed_field(index) {
 }
 
 
-template<typename RecordType>
-auto DataPage<RecordType>::get_expected_capacity() -> int32 {
-    return std::floor(
-            static_cast<double>(get_buffer_size() - 2 * sizeof(int64) - 2 * sizeof(int32)) /
-            (sizeof(RecordType))
-    );
-}
-
-
-template<typename RecordType>
-void DataPage<RecordType>::write(std::fstream &file) {
+template<typename KeyType, typename RecordType, typename Index>
+auto DataPage<KeyType, RecordType, Index>::write(std::fstream &file) -> void {
     char* buffer = new char[size_of()];
     int offset = 0;
+    memcpy(buffer, (char *) &this->capacity, sizeof(std::int32_t));
+    offset += sizeof(std::int32_t);
 
-    memcpy(buffer + offset, (char *) &capacity, sizeof(int32));
-    offset += sizeof(int32);
+    memcpy(buffer + offset, (char *) &num_records, sizeof(std::int32_t));
+    offset += sizeof(std::int32_t);
 
-    memcpy(buffer + offset, (char *) &num_records, sizeof(int32));
-    offset += sizeof(int32);
+    memcpy(buffer + offset, (char *) &next_leaf, sizeof(std::int64_t));
+    offset += sizeof(std::int64_t);
 
-    memcpy(buffer + offset, (char *) &next_leaf, sizeof(int64));
-    offset += sizeof(int64);
-
-    memcpy(buffer + offset, (char *) &prev_leaf, sizeof(int64));
-    offset += sizeof(int64);
+    memcpy(buffer + offset, (char *) &prev_leaf, sizeof(std::int64_t));
+    offset += sizeof(std::int64_t);
 
     for (int i = 0; i < num_records; ++i) {
         memcpy(buffer + offset, (char *) &records[i], sizeof(RecordType));
@@ -83,24 +74,23 @@ void DataPage<RecordType>::write(std::fstream &file) {
 }
 
 
-template<typename RecordType>
-void DataPage<RecordType>::read(std::fstream &file) {
+template<typename KeyType, typename RecordType, typename Index>
+auto DataPage<KeyType, RecordType, Index>::read(std::fstream &file) -> void {
     char* buffer = new char[size_of()];
     int offset = 0;
     file.read(buffer, size_of());
 
-    memcpy((char *) &capacity, buffer + offset, sizeof(int32));
-    offset += sizeof(int32);
+    memcpy((char *) &this->capacity, buffer + offset, sizeof(std::int32_t));
+    offset += sizeof(std::int32_t);
 
-    memcpy((char *) &num_records, buffer + offset, sizeof(int32));
-    offset += sizeof(int32);
+    memcpy((char *) &num_records, buffer + offset, sizeof(std::int32_t));
+    offset += sizeof(std::int32_t);
 
-    memcpy((char *) & next_leaf, buffer + offset, sizeof(int64));
-    offset += sizeof(int64);
+    memcpy((char *) & next_leaf, buffer + offset, sizeof(std::int64_t));
+    offset += sizeof(std::int64_t);
 
-    memcpy((char *) & prev_leaf, buffer + offset, sizeof(int64));
-    offset += sizeof(int64);
-
+    memcpy((char *) & prev_leaf, buffer + offset, sizeof(std::int64_t));
+    offset += sizeof(std::int64_t);
 
     for (int i = 0; i < num_records; ++i) {
         memcpy((char *) & records[i], buffer + offset, sizeof(RecordType));
@@ -111,9 +101,9 @@ void DataPage<RecordType>::read(std::fstream &file) {
 }
 
 
-template<typename RecordType>
-void DataPage<RecordType>::push_front(RecordType &record) {
-    if (num_records == capacity) {
+template<typename KeyType, typename RecordType, typename Index>
+auto DataPage<KeyType, RecordType, Index>::push_front(RecordType &record) -> void {
+    if (num_records == this->capacity) {
         throw FullPage();
     }
 
@@ -126,9 +116,9 @@ void DataPage<RecordType>::push_front(RecordType &record) {
 }
 
 
-template<typename RecordType>
-void DataPage<RecordType>::push_back(RecordType &record) {
-    if (num_records == capacity) {
+template<typename KeyType, typename RecordType, typename Index>
+auto DataPage<KeyType, RecordType, Index>::push_back(RecordType &record) -> void {
+    if (num_records == this->capacity) {
         throw FullPage();
     }
 
@@ -136,8 +126,8 @@ void DataPage<RecordType>::push_back(RecordType &record) {
 }
 
 
-template<typename RecordType>
-auto DataPage<RecordType>::max_record() -> RecordType  {
+template<typename KeyType, typename RecordType, typename Index>
+auto DataPage<KeyType, RecordType, Index>::max_record() -> RecordType  {
     if (num_records < 1) {
         throw EmptyPage();
     }
@@ -146,10 +136,10 @@ auto DataPage<RecordType>::max_record() -> RecordType  {
 }
 
 
-template<typename RecordType>
-template<typename KeyType, typename Greater, typename Index>
-void DataPage<RecordType>::sorted_insert(RecordType &record, Greater greater_to, Index get_indexed_field) {
-    if (num_records == capacity) {
+template<typename KeyType, typename RecordType, typename Index>
+template<typename Greater>
+auto DataPage<KeyType, RecordType, Index>::sorted_insert(RecordType &record, Greater greater_to) -> void {
+    if (num_records == this->capacity) {
         throw FullPage();
     }
 
@@ -164,14 +154,23 @@ void DataPage<RecordType>::sorted_insert(RecordType &record, Greater greater_to,
 }
 
 
-template<typename RecordType>
-auto DataPage<RecordType>::split(int32 minimum_data_page_num_records) {
-    DataPage<RecordType> new_data_page(capacity);
+template<typename KeyType, typename RecordType, typename Index>
+auto DataPage<KeyType, RecordType, Index>::split(std::int32_t split_position) -> SplitResult<KeyType> {
+    auto new_data_page = std::make_shared<DataPage<KeyType, RecordType, Index>>(this->capacity, get_indexed_field);
 
-    for (int i = minimum_data_page_num_records; i < num_records; ++i) {
-        new_data_page.push_back(records[i]);
+    for (int i = split_position; i < num_records; ++i) {
+        new_data_page->push_back(records[i]);
     }
 
-    num_records -= new_data_page.num_records;
-    return new_data_page;
+    num_records -= new_data_page->num_records;
+    return SplitResult<KeyType> { new_data_page, get_indexed_field(records[num_records - 1]) };
+}
+
+
+template <typename RecordType>
+auto get_expected_data_page_capacity() -> std::int32_t{
+    return std::floor(
+            static_cast<double>(get_buffer_size() - 2 * sizeof(std::int64_t) - 2 * sizeof(std::int32_t)) /
+            (sizeof(RecordType))
+    );
 }

@@ -3,6 +3,7 @@
 
 #include "bplustree.hpp"
 #include "record.hpp"
+#include "time_utils.hpp"
 
 
 auto main(int argc, char* argv[]) -> int {
@@ -10,8 +11,8 @@ auto main(int argc, char* argv[]) -> int {
     const std::string& metadata_file_name = "metadata.json";
     const std::string& index_file_name = "btree.dat";
 
-    const int32 index_page_capacity = IndexPage<int32>::get_expected_capacity();
-    const int32 data_page_capacity = DataPage<Record>::get_expected_capacity();
+    const int index_page_capacity = get_expected_index_page_capacity<std::int32_t>();
+    const int data_page_capacity = get_expected_data_page_capacity<Record>();
     const bool unique_key = true;
 
     const Property props(
@@ -23,19 +24,12 @@ auto main(int argc, char* argv[]) -> int {
             unique_key
     );
 
-    const std::function<int32(Record&)> index_by_id = [](Record& record) -> int32 {
+    const std::function<std::int32_t(Record&)> index_by_id = [](Record& record) -> std::int32_t {
         return record.id;
     };
 
-    BPlusTree<int32, Record> btree(props, index_by_id);
-
-    std::function<void(const std::function<void()>&)> const measure_execution_time = [] (const std::function<void()>& procedure) {
-        auto start_time = std::chrono::high_resolution_clock::now();
-        procedure();
-        auto end_time = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> const duration = end_time - start_time;
-        std::cout << "Execution time: " << duration.count() << " seconds\n";
-    };
+    BPlusTree<std::int32_t, Record> btree(props, index_by_id);
+    Clock clock;
 
     std::vector<Record> recovered;
 
@@ -48,15 +42,15 @@ auto main(int argc, char* argv[]) -> int {
     std::cout << "Upper Bound: ";
     std::cin >> upper_bound;
 
-    measure_execution_time([&](){
+    clock([&]() {
         recovered = btree.between(lower_bound, upper_bound);
-    });
+    }, std::cout);
 
     std::cout << recovered.size() << " rows recovered" << "\n";
 
-//    for (const Record& record: recovered) {
-//        std::cout << record << "\n";
-//    }
+    for (const Record& record: recovered) {
+        std::cout << record << "\n";
+    }
 
     return 0;
 }
