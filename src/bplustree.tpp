@@ -357,7 +357,7 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::between(const KeyType &lowe
         seek(b_plus_index_file, seek_page);
         data_page.read(b_plus_index_file);
         for (int i = 0; i < data_page.num_records; ++i) {
-            if (greater_to(lower_bound, get_indexed_field(data_page.records[i]))) {
+            if (greater_to(lower_bound,  get_indexed_field(data_page.records[i]))) {
                 continue;
             }
             if (greater_to(get_indexed_field(data_page.records[i]), upper_bound)) {
