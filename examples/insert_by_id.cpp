@@ -44,7 +44,7 @@ auto main(int argc, char* argv[]) -> int {
     std::int32_t record_id {};
     std::string record_name;
 
-    Clock clock;
+    const Clock clock;
     clock([&]() {
         while (file >> record_id >> record_name >> record_age) {
             Record record(record_id, record_name, record_age);

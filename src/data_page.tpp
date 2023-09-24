@@ -16,8 +16,8 @@ auto DataPage<KeyType, RecordType, Index>::size_of() -> int {
 
 
 template<typename KeyType, typename RecordType, typename Index>
-DataPage<KeyType, RecordType, Index>::DataPage(DataPage &&other) noexcept
-        : Page<KeyType>(std::move(other.capacity)),
+DataPage<KeyType, RecordType, Index>::DataPage(const DataPage &other)
+        : Page<KeyType>(other.capacity),
           num_records(other.num_records),
           next_leaf(other.next_leaf),
           prev_leaf(other.prev_leaf),
@@ -29,15 +29,12 @@ DataPage<KeyType, RecordType, Index>::DataPage(DataPage &&other) noexcept
 
 
 template<typename KeyType, typename RecordType, typename Index>
-DataPage<KeyType, RecordType, Index>::DataPage(const DataPage &other)
+DataPage<KeyType, RecordType, Index>::DataPage(DataPage &&other) noexcept
         : Page<KeyType>(std::move(other.capacity)),
           num_records(std::move(other.num_records)),
           next_leaf(std::move(other.next_leaf)),
           prev_leaf(std::move((other.prev_leaf))),
-          records(this->capacity, RecordType()) {
-    for (int i = 0; i < num_records; ++i){
-        records[i] = other.records[i];
-    }
+          records(std::move(other.records)) {
 }
 
 
@@ -52,7 +49,7 @@ template<typename KeyType, typename RecordType, typename Index>
 auto DataPage<KeyType, RecordType, Index>::write(std::fstream &file) -> void {
     char* buffer = new char[size_of()];
     int offset = 0;
-    memcpy(buffer, (char *) &this->capacity, sizeof(std::int32_t));
+    memcpy(buffer + offset, (char *) &this->capacity, sizeof(std::int32_t));
     offset += sizeof(std::int32_t);
 
     memcpy(buffer + offset, (char *) &num_records, sizeof(std::int32_t));

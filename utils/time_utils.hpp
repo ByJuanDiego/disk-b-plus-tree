@@ -16,8 +16,8 @@ public:
         auto start_time = std::chrono::high_resolution_clock::now();
         procedure();
         auto end_time = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> const duration = end_time - start_time;
-        ostream << "Execution time: " << duration.count() << " seconds\n";
+        std::chrono::duration<double, std::milli> const duration = end_time - start_time;
+        ostream << "Execution time: " << duration.count() << " ms\n";
     };
 };
 

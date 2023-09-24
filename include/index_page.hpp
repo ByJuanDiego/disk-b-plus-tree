@@ -30,21 +30,24 @@ struct IndexPage: public Page<KeyType> {
 
     IndexPage(const IndexPage<KeyType>& other);
 
+    IndexPage(IndexPage&& other) noexcept;
+
     ~IndexPage();
 
-    auto write(std::fstream &file)                                                                   -> void override;
+    auto write(std::fstream &file)                                           -> void override;
 
-    auto read(std::fstream &file)                                                                    -> void override;
+    auto read(std::fstream &file)                                            -> void override;
 
-    auto size_of()                                                                                   -> std::int32_t override;
+    auto size_of()                                                           -> std::int32_t override;
 
-    auto split(std::int32_t split_position)                                                          -> SplitResult<KeyType> override;
+    auto split(std::int32_t split_position)                                  -> SplitResult<KeyType> override;
 
-    auto push_front(KeyType& key, std::int64_t child)                                                -> void;
+    auto push_front(KeyType& key, std::int64_t child)                        -> void;
 
-    auto push_back(KeyType& key, std::int64_t child)                                                 -> void;
+    auto push_back(KeyType& key, std::int64_t child)                         -> void;
 
-    auto reallocate_references(std::int32_t child_pos, KeyType& new_key, std::int64_t new_page_seek) -> void;
+    auto reallocate_references(std::int32_t child_pos,
+                               KeyType& new_key, std::int64_t new_page_seek) -> void;
 };
 
 

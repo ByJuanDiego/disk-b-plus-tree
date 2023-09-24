@@ -13,8 +13,8 @@ IndexPage<KeyType>::IndexPage(std::int32_t capacity, bool points_to_leaf)
 
 template<typename KeyType>
 IndexPage<KeyType>::IndexPage(const IndexPage<KeyType> &other)
-        : Page<KeyType>(other.capacity), num_keys(other.num_keys),
-          points_to_leaf(other.points_to_leaf), keys(this->capacity, KeyType()), children(this->capacity + 1, emptyPage) {
+        : Page<KeyType>(other.capacity), num_keys(other.num_keys), points_to_leaf(other.points_to_leaf),
+          keys(this->capacity, KeyType()), children(this->capacity + 1, emptyPage) {
 
     for (int i = 0; i < num_keys; ++i) {
         keys[i] = other.keys[i];
@@ -23,6 +23,13 @@ IndexPage<KeyType>::IndexPage(const IndexPage<KeyType> &other)
     for (int i = 0; i < num_keys + 1; ++i) {
         children[i] = other.children[i];
     }
+}
+
+
+template<typename KeyType>
+IndexPage<KeyType>::IndexPage(IndexPage &&other) noexcept
+        : Page<KeyType>(std::move(other.capacity)), num_keys(std::move(other.num_keys)), keys(std::move(other.keys)),
+          children(std::move(other.children)), points_to_leaf(std::move(other.points_to_leaf)){
 }
 
 
@@ -135,16 +142,16 @@ auto IndexPage<KeyType>::reallocate_references(std::int32_t child_pos, KeyType& 
 }
 
 template <typename KeyType>
-auto IndexPage<KeyType>::split(std::int32_t new_key_pos) -> SplitResult<KeyType> {
+auto IndexPage<KeyType>::split(std::int32_t split_position) -> SplitResult<KeyType> {
     auto new_index_page = std::make_shared<IndexPage<KeyType>>(this->capacity, points_to_leaf);
 
-    for (int i = new_key_pos + 1; i < num_keys; ++i) {
+    for (int i = split_position + 1; i < num_keys; ++i) {
         new_index_page->push_back(keys[i], children[i + 1]);
     }
-    new_index_page->children[0] = children[new_key_pos + 1];
+    new_index_page->children[0] = children[split_position + 1];
 
     num_keys -= (new_index_page->num_keys + 1);
-    return SplitResult<KeyType> { new_index_page, keys[new_key_pos] };
+    return SplitResult<KeyType> { new_index_page, keys[split_position] };
 }
 
 

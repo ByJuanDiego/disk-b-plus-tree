@@ -7,6 +7,13 @@
 
 
 auto main(int argc, char* argv[]) -> int {
+    if (argc < 3) {
+        return EXIT_FAILURE;
+    }
+
+    int lower_bound = atoi(argv[1]);
+    int upper_bound = atoi(argv[2]);
+
     const std::string& directory_path = "./index/index_by_id/";
     const std::string& metadata_file_name = "metadata.json";
     const std::string& index_file_name = "btree.dat";
@@ -29,22 +36,12 @@ auto main(int argc, char* argv[]) -> int {
     };
 
     BPlusTree<std::int32_t, Record> btree(props, index_by_id);
-    Clock clock;
+    const Clock clock;
 
     std::vector<Record> recovered;
-
-    int lower_bound = -1;
-    int upper_bound = -1;
-
-    std::cout << "Lower Bound: ";
-    std::cin >> lower_bound;
-
-    std::cout << "Upper Bound: ";
-    std::cin >> upper_bound;
-
     clock([&]() {
         recovered = btree.between(lower_bound, upper_bound);
-    }, std::cout);
+        }, std::cout);
 
     std::cout << recovered.size() << " rows recovered" << "\n";
 
@@ -52,5 +49,5 @@ auto main(int argc, char* argv[]) -> int {
         std::cout << record << "\n";
     }
 
-    return 0;
+    return EXIT_SUCCESS;
 }

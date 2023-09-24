@@ -53,7 +53,7 @@ struct SplitResult {
 
 
 // Gets the size of the previous page after inserting (it is used recursively)
-struct InsertStatus {
+struct InsertResult {
     std::int32_t size;
 };
 
