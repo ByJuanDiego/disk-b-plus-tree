@@ -5,7 +5,6 @@
 #include "record.hpp"
 #include "time_utils.hpp"
 
-
 auto main(int argc, char* argv[]) -> int {
     if (argc < 3) {
         return EXIT_FAILURE;

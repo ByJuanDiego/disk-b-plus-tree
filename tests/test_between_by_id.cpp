@@ -60,7 +60,7 @@ auto main(int argc, char* argv[]) -> int {
 
         BPlusTree<std::int32_t, Record> btree(property, get_indexed_field);
         search_test(btree, NUMBER_OF_RECORDS);
-        std::cout << "Passed test for index #" << TEST << "\n";
+        std::cout << "Passed tests for index #" << TEST << "\n";
     }
 
     return EXIT_SUCCESS;

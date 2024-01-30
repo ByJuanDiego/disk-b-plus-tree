@@ -41,7 +41,7 @@ struct DataPage: public Page<KeyType> {
 
     auto size_of()                                             -> std::int32_t override;
 
-    auto split(std::int32_t split_position)                    -> SplitResult<KeyType> override;
+    auto split(std::int32_t split_pos)                         -> SplitResult<KeyType> override;
 
     auto push_front(RecordType& record)                        -> void;
 
@@ -50,8 +50,13 @@ struct DataPage: public Page<KeyType> {
     auto max_record()                                          -> RecordType;
 
     template <typename Greater>
-    auto sorted_insert(RecordType& record, Greater greater_to) -> void;
+    auto sorted_insert(RecordType& record, Greater gt)         -> void;
+
+    template <typename Greater>
+    auto remove(KeyType key, Greater gt)                       -> std::shared_ptr<KeyType>;
 };
+
+
 
 template <typename RecordType>
 auto get_expected_data_page_capacity() -> std::int32_t;

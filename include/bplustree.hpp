@@ -30,7 +30,7 @@ private:
 
     Json::Value metadata_json;
 
-    Greater greater_to;
+    Greater gt;
     Index get_indexed_field;
 
     auto create_index()                                                         -> void;
@@ -53,17 +53,19 @@ private:
 
     auto balance_root_index_page()                                               -> void;
 
+    auto remove(std::streampos seek_page, PageType type, const KeyType& key)     -> RemoveResult<KeyType>;
+
 public:
 
     explicit BPlusTree(const Property& property, Index index, Greater greater = Greater());
 
     auto insert(RecordType& record)                                               -> void;
 
+    auto remove(const KeyType& key)                                               -> void;
+
     auto search(const KeyType& key)                                               -> std::vector<RecordType>;
 
     auto between(const KeyType& lower_bound, const KeyType& upper_bound)          -> std::vector<RecordType>;
-
-    auto remove(KeyType& key)                                                     -> void;
 };
 
 

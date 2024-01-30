@@ -135,14 +135,14 @@ auto DataPage<KeyType, RecordType, Index>::max_record() -> RecordType  {
 
 template<typename KeyType, typename RecordType, typename Index>
 template<typename Greater>
-auto DataPage<KeyType, RecordType, Index>::sorted_insert(RecordType &record, Greater greater_to) -> void {
+auto DataPage<KeyType, RecordType, Index>::sorted_insert(RecordType &record, Greater gt) -> void {
     if (num_records == this->capacity) {
         throw FullPage();
     }
 
     KeyType key = get_indexed_field(record);
     int record_pos = num_records;
-    while (record_pos >= 1 && greater_to(get_indexed_field(records[record_pos - 1]), key)) {
+    while (record_pos >= 1 && gt(get_indexed_field(records[record_pos - 1]), key)) {
         records[record_pos] = records[record_pos - 1];
         --record_pos;
     }
@@ -152,15 +152,43 @@ auto DataPage<KeyType, RecordType, Index>::sorted_insert(RecordType &record, Gre
 
 
 template<typename KeyType, typename RecordType, typename Index>
-auto DataPage<KeyType, RecordType, Index>::split(std::int32_t split_position) -> SplitResult<KeyType> {
+auto DataPage<KeyType, RecordType, Index>::split(std::int32_t split_pos) -> SplitResult<KeyType> {
     auto new_data_page = std::make_shared<DataPage<KeyType, RecordType, Index>>(this->capacity, get_indexed_field);
 
-    for (int i = split_position; i < num_records; ++i) {
+    for (int i = split_pos; i < num_records; ++i) {
         new_data_page->push_back(records[i]);
     }
 
     num_records -= new_data_page->num_records;
     return SplitResult<KeyType> { new_data_page, get_indexed_field(records[num_records - 1]) };
+}
+
+
+template<typename KeyType, typename RecordType, typename Index>
+template<typename Greater>
+auto DataPage<KeyType, RecordType, Index>::remove(KeyType key, Greater gt) -> std::shared_ptr<KeyType> {
+    std::int32_t i = 0;
+
+    while (i < num_records && gt(key, get_indexed_field(records[i]))) {
+        ++i;
+    }
+
+    if (i == num_records || gt(get_indexed_field(records[i]), key)) {
+        throw KeyNotFound();
+    }
+
+    while (i < num_records - 1) {
+        records[i] = records[i + 1];
+        i++;
+    }
+
+    num_records--;
+
+    if (num_records > 0) {
+        return std::make_shared<KeyType>(get_indexed_field(records[num_records - 1]));
+    }
+
+    return nullptr;
 }
 
 

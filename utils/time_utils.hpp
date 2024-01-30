@@ -14,10 +14,11 @@ class Clock {
 public:
     void operator () (const std::function<void()>& procedure, std::ostream& ostream) const {
         auto start_time = std::chrono::high_resolution_clock::now();
+        ostream << "====================[ Timer ]============================\n";
         procedure();
         auto end_time = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::milli> const duration = end_time - start_time;
-        ostream << "Execution time: " << duration.count() << " ms\n";
+        ostream << "[ Procedure finished in: " << duration.count() << "ms ] \n";
     };
 };
 

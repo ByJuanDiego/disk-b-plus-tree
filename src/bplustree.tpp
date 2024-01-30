@@ -65,8 +65,8 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::locate_data_page(const KeyT
             do {
                 seek(b_plus_index_file, seek_page);
                 index_page.read(b_plus_index_file);
-                int child_pos = 0;
-                while ((child_pos < index_page.num_keys) && greater_to(key, index_page.keys[child_pos])) {
+                std::int32_t child_pos = 0;
+                while ((child_pos < index_page.num_keys) && gt(key, index_page.keys[child_pos])) {
                     ++child_pos;
                 }
                 seek_page = index_page.children[child_pos];
@@ -82,22 +82,25 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::locate_data_page(const KeyT
 template<typename KeyType, typename RecordType, typename Greater, typename Index>
 auto BPlusTree<KeyType, RecordType, Greater, Index>::insert(std::streampos seek_page, PageType type,
                                                             RecordType &record) -> InsertResult {
+    // When a data page is found, proceeds to insert the record in-order and then resend the page to disk
     if (type == dataPage) {
         DataPage<KeyType, RecordType, Index> data_page(metadata_json[DATA_PAGE_CAPACITY].asInt(), get_indexed_field);
         seek(b_plus_index_file, seek_page);
         data_page.read(b_plus_index_file);
-        data_page.template sorted_insert<Greater>(record, greater_to);
+        data_page.template sorted_insert<Greater>(record, gt);
         seek(b_plus_index_file, seek_page);
         data_page.write(b_plus_index_file);
         return InsertResult { data_page.num_records };
     }
 
+    // Otherwise, the index page is iterated to locate the right child to descend the tree.
+    // This procedure is often done recursively since the height of the tree increases when inserting records.
     IndexPage<KeyType> index_page(metadata_json[INDEX_PAGE_CAPACITY].asInt());
     seek(b_plus_index_file, seek_page);
     index_page.read(b_plus_index_file);
 
-    int child_pos = 0;
-    while (child_pos < index_page.num_keys && greater_to(get_indexed_field(record), index_page.keys[child_pos])) {
+    std::int32_t child_pos = 0;
+    while (child_pos < index_page.num_keys && gt(get_indexed_field(record), index_page.keys[child_pos])) {
         ++child_pos;
     }
 
@@ -111,7 +114,9 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::insert(std::streampos seek_
     } else if (children_type == indexPage && (prev_page_status.size == metadata_json[INDEX_PAGE_CAPACITY].asInt())) {
         balance_index_page(index_page, child_pos, seek_page, child_seek);
     }
-    return InsertResult {index_page.num_keys};
+
+    // We track the current number of keys to the upcoming state, so it can handle the logic for the page split
+    return InsertResult { index_page.num_keys };
 }
 
 
@@ -261,7 +266,7 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::balance_root_index_page() -
 
 template<typename KeyType, typename RecordType, typename Greater, typename Index>
 BPlusTree<KeyType, RecordType, Greater, Index>::BPlusTree(const Property &property, Index index, Greater greater)
-        : greater_to(greater), get_indexed_field(index) {
+        : gt(greater), get_indexed_field(index) {
     metadata_json = property.json_value();
     open(metadata_file, metadata_json[METADATA_FULL_PATH].asString(), std::ios::in);
 
@@ -294,10 +299,11 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::insert(RecordType &record) 
         std::streampos seek_root = metadata_json[SEEK_ROOT].asLargestInt();
         InsertResult result = this->insert(seek_root, root_page_type, record);
 
+        // At the end of the recursive calls generated above, we must check (as a base case) if the root page is full
+        // and needs to be split.
         if (root_page_type == dataPage && (result.size == metadata_json[DATA_PAGE_CAPACITY].asInt())) {
             balance_root_data_page();
         }
-        // Check if the root page is full and needs to be split.
         else if (root_page_type == indexPage && (result.size == metadata_json[INDEX_PAGE_CAPACITY].asInt())) {
             balance_root_index_page();
         }
@@ -324,10 +330,10 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::search(const KeyType &key) 
         data_page.read(b_plus_index_file);
 
         for (int i = 0; i < data_page.num_records; ++i) {
-            if (greater_to(key, get_indexed_field(data_page.records[i]))) {
+            if (gt(key, get_indexed_field(data_page.records[i]))) {
                 continue;
             }
-            if (greater_to(get_indexed_field(data_page.records[i])), key) {
+            if (gt(get_indexed_field(data_page.records[i])), key) {
                 if (located_records.empty()) {
                     throw KeyNotFound();
                 }
@@ -356,11 +362,11 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::between(const KeyType &lowe
     do {
         seek(b_plus_index_file, seek_page);
         data_page.read(b_plus_index_file);
-        for (int i = 0; i < data_page.num_records; ++i) {
-            if (greater_to(lower_bound,  get_indexed_field(data_page.records[i]))) {
+        for (std::int32_t i = 0; i < data_page.num_records; ++i) {
+            if (gt(lower_bound,  get_indexed_field(data_page.records[i]))) {
                 continue;
             }
-            if (greater_to(get_indexed_field(data_page.records[i]), upper_bound)) {
+            if (gt(get_indexed_field(data_page.records[i]), upper_bound)) {
                 close(b_plus_index_file);
                 if (located_records.empty()) {
                     throw KeyNotFound();
@@ -381,6 +387,51 @@ auto BPlusTree<KeyType, RecordType, Greater, Index>::between(const KeyType &lowe
 
 
 template<typename KeyType, typename RecordType, typename Greater, typename Index>
-auto BPlusTree<KeyType, RecordType, Greater, Index>::remove(KeyType &key) -> void {
+auto BPlusTree<KeyType, RecordType, Greater, Index>::remove(const KeyType &key) -> void {
+    open(b_plus_index_file, metadata_json[INDEX_FULL_PATH].asString(), std::ios::in | std::ios::out);
+    auto root_page_type = static_cast<PageType>(metadata_json[ROOT_STATUS].asInt());
+
+    if (root_page_type == emptyPage) {
+        close(b_plus_index_file);
+        throw KeyNotFound();
+    }
+
+    std::streampos seek_root = metadata_json[SEEK_ROOT].asInt();
+    RemoveResult result = this->remove(seek_root, root_page_type, key);
+    // TODO
+}
+
+
+template<typename KeyType, typename RecordType, typename Greater, typename Index>
+auto BPlusTree<KeyType, RecordType, Greater, Index>::remove(std::streampos seek_page, PageType type,
+                                                            const KeyType& key) -> RemoveResult<KeyType> {
+    if (type == dataPage) {
+        DataPage<KeyType, RecordType, Index> data_page(metadata_json[DATA_PAGE_CAPACITY].asInt(), get_indexed_field);
+        seek(b_plus_index_file, seek_page);
+        data_page.read(b_plus_index_file);
+        std::shared_ptr<KeyNotFound> predecessor = data_page.template remove<Greater>(key, gt);
+        seek(b_plus_index_file, seek_page);
+        data_page.write(b_plus_index_file);
+        return RemoveResult<KeyType> { data_page.num_records, predecessor };
+    }
+
+    IndexPage<KeyType> index_page(metadata_json[INDEX_PAGE_CAPACITY].asInt());
+    seek(b_plus_index_file, seek_page);
+    index_page.read(b_plus_index_file);
+
+    std::int32_t child_pos = 0;
+    while (child_pos < index_page.num_keys && gt(key, index_page.keys[child_pos])) {
+        ++child_pos;
+    }
+
+    auto children_type = static_cast<PageType>(index_page.points_to_leaf);
+    std::streampos child_seek = index_page.children[child_pos];
+    RemoveResult<KeyType> result = remove(child_seek, children_type, key);
+
+    if (child_pos < index_page.num_keys && result.predecessor && !gt(index_page.keys[child_pos], key)) {
+        index_page.keys[child_pos] = result.predecessor.get();
+        result.predecessor = nullptr;
+    }
+
     // TODO
 }

@@ -30,7 +30,7 @@ public:
     virtual auto read(std::fstream & file)          -> void = 0;
 
     virtual auto size_of()                          -> std::int32_t = 0;
-    virtual auto split(std::int32_t split_position) -> SplitResult<KeyType> = 0;
+    virtual auto split(std::int32_t split_pos)      -> SplitResult<KeyType> = 0;
 };
 
 
@@ -57,6 +57,28 @@ struct InsertResult {
     std::int32_t size;
 };
 
+
+template <typename KeyType>
+struct RemoveResult {
+    std::int32_t size;
+    std::shared_ptr<KeyType> predecessor;
+};
+
+
+enum BalanceType {
+    BorrowLeft,
+    BorrowRight,
+    MergeLeft,
+    MergeRight,
+    AlreadyBalanced
+};
+
+
+template <typename KeyType>
+struct BalanceChecker {
+    BalanceType type;
+    std::shared_ptr<Page<KeyType>> sibling;
+};
 
 
 #endif //B_PLUS_TREE_PAGE_HPP
