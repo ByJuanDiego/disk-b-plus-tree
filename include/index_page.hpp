@@ -18,19 +18,15 @@
 #include "error_handler.hpp"
 
 
-template <typename KeyType>
-struct IndexPage: public Page<KeyType> {
+template <DEFINE_INDEX_TYPE>
+struct IndexPage: public Page<INDEX_TYPE> {
 
     std::int32_t num_keys;
     std::vector<KeyType> keys;
     std::vector<std::int64_t> children;
     bool points_to_leaf;
 
-    explicit IndexPage(std::int32_t capacity, bool points_to_leaf = true);
-
-    IndexPage(const IndexPage<KeyType>& other);
-
-    IndexPage(IndexPage&& other) noexcept;
+    explicit IndexPage(std::int32_t capacity, BPlusTree<INDEX_TYPE>* b_plus, bool points_to_leaf = true);
 
     ~IndexPage();
 
@@ -40,14 +36,22 @@ struct IndexPage: public Page<KeyType> {
 
     auto size_of()                                                           -> std::int32_t override;
 
-    auto split(std::int32_t split_position)                                  -> SplitResult<KeyType> override;
+    auto len()                                                               -> std::size_t override;
+
+    auto split(std::int32_t split_position)                                  -> SplitResult<INDEX_TYPE> override;
+
+    auto balance(std::streampos seek_parent,
+                 IndexPage<INDEX_TYPE>& parent, std::int32_t child_pos)      -> void override;
 
     auto push_front(KeyType& key, std::int64_t child)                        -> void;
 
     auto push_back(KeyType& key, std::int64_t child)                         -> void;
 
-    auto reallocate_references(std::int32_t child_pos,
-                               KeyType& new_key, std::int64_t new_page_seek) -> void;
+    auto reallocate_references_after_split(std::int32_t child_pos,
+                                            KeyType& new_key,
+                                            std::int64_t new_page_seek)      -> void;
+
+    auto reallocate_references_after_merge(std::int32_t merged_child_pos)    -> void;
 };
 
 

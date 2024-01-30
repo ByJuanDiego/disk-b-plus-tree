@@ -9,30 +9,22 @@
 #include <fstream>
 #include <cstdint>
 
+#include "property.hpp"
+#include "file_utils.hpp"
 
-template <typename KeyType>
+
+#define DEFINE_INDEX_TYPE typename KeyType, typename RecordType, typename Greater, typename Index
+#define INDEX_TYPE KeyType, RecordType, Greater, Index
+
+
+template <DEFINE_INDEX_TYPE>
 struct SplitResult;
 
+template <DEFINE_INDEX_TYPE>
+class BPlusTree;
 
-
-template <typename KeyType>
-struct Page {
-protected:
-    std::int32_t capacity;
-
-public:
-
-    explicit Page(std::int32_t capacity): capacity(capacity) {}
-
-    virtual ~Page() = default;
-
-    virtual auto write(std::fstream & file)         -> void = 0;
-    virtual auto read(std::fstream & file)          -> void = 0;
-
-    virtual auto size_of()                          -> std::int32_t = 0;
-    virtual auto split(std::int32_t split_pos)      -> SplitResult<KeyType> = 0;
-};
-
+template <DEFINE_INDEX_TYPE>
+struct IndexPage;
 
 
 // Identifiers for pages type
@@ -42,14 +34,34 @@ enum PageType {
     dataPage  = 1    // Data Page
 };
 
+template <DEFINE_INDEX_TYPE>
+struct Page {
+protected:
+    std::int32_t capacity;
+    BPlusTree<INDEX_TYPE>* tree;
+public:
 
+    explicit Page(std::int32_t capacity, BPlusTree<INDEX_TYPE>* b_plus): tree(b_plus), capacity(capacity) {}
 
-template <typename KeyType>
-struct SplitResult {
-    std::shared_ptr<Page<KeyType>> new_page;
-    KeyType split_key;
+    virtual ~Page() = default;
+
+    virtual auto write(std::fstream & file)               -> void = 0;
+    virtual auto read(std::fstream & file)                -> void = 0;
+
+    virtual auto size_of()                                -> std::int32_t = 0;
+    virtual auto len()                                    -> std::size_t = 0;
+    virtual auto split(std::int32_t split_pos)            -> SplitResult<INDEX_TYPE> = 0;
+    virtual auto balance(std::streampos seek_parent,
+                         IndexPage<INDEX_TYPE>& parent,
+                         std::int32_t child_pos)          -> void = 0;
 };
 
+
+template <DEFINE_INDEX_TYPE>
+struct SplitResult {
+    std::shared_ptr<Page<INDEX_TYPE>> new_page;
+    KeyType split_key;
+};
 
 
 // Gets the size of the previous page after inserting (it is used recursively)
@@ -60,25 +72,9 @@ struct InsertResult {
 
 template <typename KeyType>
 struct RemoveResult {
-    std::int32_t size;
     std::shared_ptr<KeyType> predecessor;
 };
 
-
-enum BalanceType {
-    BorrowLeft,
-    BorrowRight,
-    MergeLeft,
-    MergeRight,
-    AlreadyBalanced
-};
-
-
-template <typename KeyType>
-struct BalanceChecker {
-    BalanceType type;
-    std::shared_ptr<Page<KeyType>> sibling;
-};
 
 
 #endif //B_PLUS_TREE_PAGE_HPP

@@ -18,20 +18,15 @@
 #include "error_handler.hpp"
 
 
-template <typename KeyType, typename RecordType, typename Index>
-struct DataPage: public Page<KeyType> {
+template <DEFINE_INDEX_TYPE>
+struct DataPage: public Page<INDEX_TYPE> {
 
     std::int32_t num_records;
     std::int64_t next_leaf;
     std::int64_t prev_leaf;
     std::vector<RecordType> records;
-    Index get_indexed_field;
 
-    explicit DataPage(std::int32_t capacity, const Index& index);
-
-    DataPage(const DataPage& other);
-
-    DataPage(DataPage&& other) noexcept;
+    explicit DataPage(std::int32_t capacity, BPlusTree<INDEX_TYPE>* b_plus);
 
     ~DataPage() override;
 
@@ -41,21 +36,32 @@ struct DataPage: public Page<KeyType> {
 
     auto size_of()                                             -> std::int32_t override;
 
-    auto split(std::int32_t split_pos)                         -> SplitResult<KeyType> override;
+    auto len()                                                 -> std::size_t override;
+
+    auto split(std::int32_t split_pos)                         -> SplitResult<INDEX_TYPE> override;
 
     auto push_front(RecordType& record)                        -> void;
 
     auto push_back(RecordType& record)                         -> void;
 
+    auto pop_front()                                           -> RecordType;
+
+    auto pop_back()                                            -> RecordType;
+
     auto max_record()                                          -> RecordType;
 
-    template <typename Greater>
-    auto sorted_insert(RecordType& record, Greater gt)         -> void;
+    auto min_record()                                          -> RecordType;
 
-    template <typename Greater>
-    auto remove(KeyType key, Greater gt)                       -> std::shared_ptr<KeyType>;
+    auto sorted_insert(RecordType& record)                     -> void;
+
+    auto remove(KeyType key)                                   -> std::shared_ptr<KeyType>;
+
+    auto balance(std::streampos seek_parent,
+                 IndexPage<INDEX_TYPE>& parent,
+                 std::int32_t child_pos)                       -> void override;
+
+    auto merge(DataPage<INDEX_TYPE>& right_sibling)            -> std::shared_ptr<DataPage<INDEX_TYPE>>;
 };
-
 
 
 template <typename RecordType>

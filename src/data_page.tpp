@@ -5,48 +5,31 @@
 #include "data_page.hpp"
 
 
-template<typename KeyType, typename RecordType, typename Index>
-DataPage<KeyType, RecordType, Index>::~DataPage() = default;
+template<DEFINE_INDEX_TYPE>
+DataPage<INDEX_TYPE>::~DataPage() = default;
 
 
-template<typename KeyType, typename RecordType, typename Index>
-auto DataPage<KeyType, RecordType, Index>::size_of() -> int {
+template<DEFINE_INDEX_TYPE>
+auto DataPage<INDEX_TYPE>::size_of() -> int {
     return 2 * sizeof(std::int32_t) + 2 * sizeof(std::int64_t) + this->capacity * sizeof(RecordType);
 }
 
 
-template<typename KeyType, typename RecordType, typename Index>
-DataPage<KeyType, RecordType, Index>::DataPage(const DataPage &other)
-        : Page<KeyType>(other.capacity),
-          num_records(other.num_records),
-          next_leaf(other.next_leaf),
-          prev_leaf(other.prev_leaf),
-          records(this->capacity, RecordType()){
-    for (int i = 0; i < num_records; ++i) {
-        records[i] = other.records[i];
-    }
+template<typename KeyType, typename RecordType, typename Greater, typename Index>
+auto DataPage<KeyType, RecordType, Greater, Index>::len() -> std::size_t {
+    return this->num_records;
 }
 
 
-template<typename KeyType, typename RecordType, typename Index>
-DataPage<KeyType, RecordType, Index>::DataPage(DataPage &&other) noexcept
-        : Page<KeyType>(std::move(other.capacity)),
-          num_records(std::move(other.num_records)),
-          next_leaf(std::move(other.next_leaf)),
-          prev_leaf(std::move((other.prev_leaf))),
-          records(std::move(other.records)) {
+template<DEFINE_INDEX_TYPE>
+DataPage<INDEX_TYPE>::DataPage(int32_t capacity, BPlusTree<INDEX_TYPE>* b_plus)
+        : Page<INDEX_TYPE>(capacity, b_plus), num_records(0), next_leaf(emptyPage), prev_leaf(emptyPage),
+          records(this->capacity, RecordType()) {
 }
 
 
-template<typename KeyType, typename RecordType, typename Index>
-DataPage<KeyType, RecordType, Index>::DataPage(std::int32_t capacity, const Index& index)
-        : Page<KeyType>(capacity), num_records(0), next_leaf(emptyPage), prev_leaf(emptyPage),
-          records(this->capacity, RecordType()), get_indexed_field(index) {
-}
-
-
-template<typename KeyType, typename RecordType, typename Index>
-auto DataPage<KeyType, RecordType, Index>::write(std::fstream &file) -> void {
+template<DEFINE_INDEX_TYPE>
+auto DataPage<INDEX_TYPE>::write(std::fstream &file) -> void {
     char* buffer = new char[size_of()];
     int offset = 0;
     memcpy(buffer + offset, (char *) &this->capacity, sizeof(std::int32_t));
@@ -71,8 +54,8 @@ auto DataPage<KeyType, RecordType, Index>::write(std::fstream &file) -> void {
 }
 
 
-template<typename KeyType, typename RecordType, typename Index>
-auto DataPage<KeyType, RecordType, Index>::read(std::fstream &file) -> void {
+template<DEFINE_INDEX_TYPE>
+auto DataPage<INDEX_TYPE>::read(std::fstream &file) -> void {
     char* buffer = new char[size_of()];
     int offset = 0;
     file.read(buffer, size_of());
@@ -98,8 +81,8 @@ auto DataPage<KeyType, RecordType, Index>::read(std::fstream &file) -> void {
 }
 
 
-template<typename KeyType, typename RecordType, typename Index>
-auto DataPage<KeyType, RecordType, Index>::push_front(RecordType &record) -> void {
+template<DEFINE_INDEX_TYPE>
+auto DataPage<INDEX_TYPE>::push_front(RecordType &record) -> void {
     if (num_records == this->capacity) {
         throw FullPage();
     }
@@ -113,8 +96,8 @@ auto DataPage<KeyType, RecordType, Index>::push_front(RecordType &record) -> voi
 }
 
 
-template<typename KeyType, typename RecordType, typename Index>
-auto DataPage<KeyType, RecordType, Index>::push_back(RecordType &record) -> void {
+template<DEFINE_INDEX_TYPE>
+auto DataPage<INDEX_TYPE>::push_back(RecordType &record) -> void {
     if (num_records == this->capacity) {
         throw FullPage();
     }
@@ -123,9 +106,36 @@ auto DataPage<KeyType, RecordType, Index>::push_back(RecordType &record) -> void
 }
 
 
-template<typename KeyType, typename RecordType, typename Index>
-auto DataPage<KeyType, RecordType, Index>::max_record() -> RecordType  {
-    if (num_records < 1) {
+template<typename KeyType, typename RecordType, typename Greater, typename Index>
+auto DataPage<KeyType, RecordType, Greater, Index>::pop_back() -> RecordType {
+    if (num_records == 0) {
+        throw EmptyPage();
+    }
+
+    return records[--num_records];
+}
+
+
+template<typename KeyType, typename RecordType, typename Greater, typename Index>
+auto DataPage<KeyType, RecordType, Greater, Index>::pop_front() -> RecordType {
+    if (num_records == 0) {
+        throw EmptyPage();
+    }
+
+    RecordType record = records[0];
+
+    for (int i = 0; i < num_records - 1; ++i) {
+        records[i] = records[i + 1];
+    }
+
+    --num_records;
+    return record;
+}
+
+
+template<DEFINE_INDEX_TYPE>
+auto DataPage<INDEX_TYPE>::max_record() -> RecordType  {
+    if (num_records == 0) {
         throw EmptyPage();
     }
 
@@ -133,47 +143,56 @@ auto DataPage<KeyType, RecordType, Index>::max_record() -> RecordType  {
 }
 
 
-template<typename KeyType, typename RecordType, typename Index>
-template<typename Greater>
-auto DataPage<KeyType, RecordType, Index>::sorted_insert(RecordType &record, Greater gt) -> void {
+template<typename KeyType, typename RecordType, typename Greater, typename Index>
+auto DataPage<KeyType, RecordType, Greater, Index>::min_record() -> RecordType {
+    if (num_records == 0) {
+        throw EmptyPage();
+    }
+
+    return records[0];
+}
+
+
+template<DEFINE_INDEX_TYPE>
+auto DataPage<INDEX_TYPE>::sorted_insert(RecordType &record) -> void {
     if (num_records == this->capacity) {
         throw FullPage();
     }
 
-    KeyType key = get_indexed_field(record);
+    KeyType key = this->tree->get_indexed_field(record);
     int record_pos = num_records;
-    while (record_pos >= 1 && gt(get_indexed_field(records[record_pos - 1]), key)) {
+    while (record_pos >= 1 && this->tree->gt(this->tree->get_indexed_field(records[record_pos - 1]), key)) {
         records[record_pos] = records[record_pos - 1];
         --record_pos;
     }
+
     records[record_pos] = record;
     ++num_records;
 }
 
 
-template<typename KeyType, typename RecordType, typename Index>
-auto DataPage<KeyType, RecordType, Index>::split(std::int32_t split_pos) -> SplitResult<KeyType> {
-    auto new_data_page = std::make_shared<DataPage<KeyType, RecordType, Index>>(this->capacity, get_indexed_field);
+template<DEFINE_INDEX_TYPE>
+auto DataPage<INDEX_TYPE>::split(std::int32_t split_pos) -> SplitResult<INDEX_TYPE> {
+    auto new_data_page = std::make_shared<DataPage<INDEX_TYPE>>(this->capacity, this->tree);
 
     for (int i = split_pos; i < num_records; ++i) {
         new_data_page->push_back(records[i]);
     }
 
     num_records -= new_data_page->num_records;
-    return SplitResult<KeyType> { new_data_page, get_indexed_field(records[num_records - 1]) };
+    return SplitResult<INDEX_TYPE> { new_data_page, this->tree->get_indexed_field(records[num_records - 1]) };
 }
 
 
-template<typename KeyType, typename RecordType, typename Index>
-template<typename Greater>
-auto DataPage<KeyType, RecordType, Index>::remove(KeyType key, Greater gt) -> std::shared_ptr<KeyType> {
+template<DEFINE_INDEX_TYPE>
+auto DataPage<INDEX_TYPE>::remove(KeyType key) -> std::shared_ptr<KeyType> {
     std::int32_t i = 0;
 
-    while (i < num_records && gt(key, get_indexed_field(records[i]))) {
+    while (i < num_records && this->tree->gt(key, this->tree->get_indexed_field(records[i]))) {
         ++i;
     }
 
-    if (i == num_records || gt(get_indexed_field(records[i]), key)) {
+    if (i == num_records || this->tree->gt(this->tree->get_indexed_field(records[i]), key)) {
         throw KeyNotFound();
     }
 
@@ -185,10 +204,102 @@ auto DataPage<KeyType, RecordType, Index>::remove(KeyType key, Greater gt) -> st
     num_records--;
 
     if (num_records > 0) {
-        return std::make_shared<KeyType>(get_indexed_field(records[num_records - 1]));
+        return std::make_shared<KeyType>(this->tree->get_indexed_field(records[num_records - 1]));
     }
 
     return nullptr;
+}
+
+
+template<DEFINE_INDEX_TYPE>
+auto DataPage<INDEX_TYPE>::balance(std::streampos seek_parent, IndexPage<INDEX_TYPE>& parent, std::int32_t child_pos) -> void {
+    std::int32_t minimum = this->tree->metadata_json[MINIMUM_DATA_PAGE_RECORDS].asInt();
+    if (num_records >= minimum) {
+        return;
+    }
+
+    DataPage<INDEX_TYPE> left_sibling(this->tree->metadata_json[DATA_PAGE_CAPACITY].asInt(), this->tree);
+    DataPage<INDEX_TYPE> right_sibling(this->tree->metadata_json[DATA_PAGE_CAPACITY].asInt(), this->tree);
+
+    if (child_pos > 0) {
+        std::streampos seek_left_sibling = parent.children[child_pos - 1];
+        seek(this->tree->b_plus_index_file, seek_left_sibling);
+        left_sibling.read(this->tree->b_plus_index_file);
+
+        if (left_sibling.num_records > minimum) {
+            // left rotation
+            RecordType to_borrow = left_sibling.pop_back();
+            this->push_front(to_borrow);
+            RecordType left_max_record = left_sibling.max_record();
+            KeyType new_key = this->tree->get_indexed_field(left_max_record);
+            parent.keys[child_pos - 1] = new_key;
+
+            // save changes
+            seek(this->tree->b_plus_index_file, seek_left_sibling);
+            left_sibling.write(this->tree->b_plus_index_file);
+            seek(this->tree->b_plus_index_file, parent.children[child_pos]);
+            this->write(this->tree->b_plus_index_file);
+            seek(this->tree->b_plus_index_file, seek_parent);
+            parent.write(this->tree->b_plus_index_file);
+            return;
+        }
+    } else {
+        std::streampos seek_right_sibling = parent.children[child_pos + 1];
+        seek(this->tree->b_plus_index_file, seek_right_sibling);
+        right_sibling.read(this->tree->b_plus_index_file);
+
+        if (right_sibling.num_records > minimum) {
+            // right rotation
+            RecordType to_borrow = right_sibling.pop_front();
+            this->push_back(to_borrow);
+            KeyType new_key = this->tree->get_indexed_field(to_borrow);
+            parent.keys[child_pos] = new_key;
+
+            // save changes
+            seek(this->tree->b_plus_index_file, seek_right_sibling);
+            right_sibling.write(this->tree->b_plus_index_file);
+            seek(this->tree->b_plus_index_file, parent.children[child_pos]);
+            this->write(this->tree->b_plus_index_file);
+            seek(this->tree->b_plus_index_file, seek_parent);
+            parent.write(this->tree->b_plus_index_file);
+            return;
+        }
+    }
+
+    if (child_pos > 0) {
+        std::streampos seek_left_sibling = parent.children[child_pos - 1];
+        std::shared_ptr<DataPage<INDEX_TYPE>> new_page = left_sibling.merge(*this);
+        parent.reallocate_references_after_merge(child_pos);
+
+        seek(this->tree->b_plus_index_file, seek_left_sibling);
+        new_page->write(this->tree->b_plus_index_file);
+        seek(this->tree->b_plus_index_file, seek_parent);
+        parent.write(this->tree->b_plus_index_file);
+    } else {
+        std::shared_ptr<DataPage<INDEX_TYPE>> new_page = this->merge(right_sibling);
+        parent.reallocate_references_after_merge(child_pos);
+
+        seek(this->tree->b_plus_index_file, parent.children[child_pos]);
+        new_page->write(this->tree->b_plus_index_file);
+        seek(this->tree->b_plus_index_file, seek_parent);
+        parent.write(this->tree->b_plus_index_file);
+    }
+}
+
+
+template<DEFINE_INDEX_TYPE>
+auto DataPage<INDEX_TYPE>::merge(DataPage<INDEX_TYPE> &right_sibling) -> std::shared_ptr<DataPage<INDEX_TYPE>> {
+    DataPage<INDEX_TYPE> new_page(this->tree->metadata_json[DATA_PAGE_CAPACITY].asInt(), this->tree);
+
+    for (std::int32_t i = 0; i < len(); ++i) {
+        new_page.push_back(records[i]);
+    }
+
+    for (std::int32_t i = 0; i < right_sibling.len(); ++i) {
+        new_page.push_back(right_sibling.records[i]);
+    }
+
+    return std::make_shared<DataPage<INDEX_TYPE>>(new_page);
 }
 
 

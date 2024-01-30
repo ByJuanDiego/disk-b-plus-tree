@@ -6,12 +6,19 @@
 #include "time_utils.hpp"
 
 auto main(int argc, char* argv[]) -> int {
-    if (argc < 3) {
-        return EXIT_FAILURE;
-    }
+    int lower_bound;
+    int upper_bound;
 
-    int lower_bound = atoi(argv[1]);
-    int upper_bound = atoi(argv[2]);
+    if (argc < 3) {
+        std::cout << "lower bound: ";
+        std::cin >> lower_bound;
+
+        std::cout << "upper bound: ";
+        std::cin >> upper_bound;
+    } else {
+        lower_bound = atoi(argv[1]);
+        upper_bound = atoi(argv[2]);
+    }
 
     const std::string& directory_path = "./index/index_by_id/";
     const std::string& metadata_file_name = "metadata.json";

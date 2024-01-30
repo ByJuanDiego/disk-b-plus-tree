@@ -4,47 +4,30 @@
 
 #include "index_page.hpp"
 
-template <typename KeyType>
-IndexPage<KeyType>::IndexPage(std::int32_t capacity, bool points_to_leaf)
-    : Page<KeyType>(capacity), num_keys(0), points_to_leaf(points_to_leaf),
+template <DEFINE_INDEX_TYPE>
+IndexPage<INDEX_TYPE>::IndexPage(std::int32_t capacity, BPlusTree<INDEX_TYPE>* b_plus, bool points_to_leaf)
+    : Page<INDEX_TYPE>(capacity, b_plus), num_keys(0), points_to_leaf(points_to_leaf),
       keys(this->capacity, KeyType()), children(this->capacity + 1, emptyPage) {
 }
 
-
-template<typename KeyType>
-IndexPage<KeyType>::IndexPage(const IndexPage<KeyType> &other)
-        : Page<KeyType>(other.capacity), num_keys(other.num_keys), points_to_leaf(other.points_to_leaf),
-          keys(this->capacity, KeyType()), children(this->capacity + 1, emptyPage) {
-
-    for (int i = 0; i < num_keys; ++i) {
-        keys[i] = other.keys[i];
-    }
-
-    for (int i = 0; i < num_keys + 1; ++i) {
-        children[i] = other.children[i];
-    }
-}
+template <DEFINE_INDEX_TYPE>
+IndexPage<INDEX_TYPE>::~IndexPage() = default;
 
 
-template<typename KeyType>
-IndexPage<KeyType>::IndexPage(IndexPage &&other) noexcept
-        : Page<KeyType>(std::move(other.capacity)), num_keys(std::move(other.num_keys)), keys(std::move(other.keys)),
-          children(std::move(other.children)), points_to_leaf(std::move(other.points_to_leaf)){
-}
-
-
-template <typename KeyType>
-IndexPage<KeyType>::~IndexPage() = default;
-
-
-template <typename KeyType>
-auto IndexPage<KeyType>::size_of() -> int {
+template <DEFINE_INDEX_TYPE>
+auto IndexPage<INDEX_TYPE>::size_of() -> int {
     return 2 * sizeof(std::int32_t) + this->capacity * sizeof(KeyType) + (this->capacity + 1) * sizeof(std::int64_t) + sizeof(bool);
 }
 
 
-template <typename KeyType>
-auto IndexPage<KeyType>::write(std::fstream &file) -> void {
+template <DEFINE_INDEX_TYPE>
+auto IndexPage<INDEX_TYPE>::len() -> std::size_t {
+    return this->num_keys;
+}
+
+
+template <DEFINE_INDEX_TYPE>
+auto IndexPage<INDEX_TYPE>::write(std::fstream &file) -> void {
     char* buffer = new char[size_of()];
 
     int offset = 0;
@@ -71,8 +54,8 @@ auto IndexPage<KeyType>::write(std::fstream &file) -> void {
 }
 
 
-template <typename KeyType>
-auto IndexPage<KeyType>::read(std::fstream &file) -> void {
+template <DEFINE_INDEX_TYPE>
+auto IndexPage<INDEX_TYPE>::read(std::fstream &file) -> void {
     char* buffer = new char[size_of()];
     file.read(buffer, size_of());
 
@@ -97,8 +80,29 @@ auto IndexPage<KeyType>::read(std::fstream &file) -> void {
 }
 
 
-template <typename KeyType>
-auto IndexPage<KeyType>::push_front(KeyType& key, std::int64_t child) -> void {
+template <DEFINE_INDEX_TYPE>
+auto IndexPage<INDEX_TYPE>::split(std::int32_t split_position) -> SplitResult<INDEX_TYPE> {
+    auto new_index_page = std::make_shared<IndexPage<INDEX_TYPE>>(this->capacity, this->tree, points_to_leaf);
+
+    for (int i = split_position + 1; i < num_keys; ++i) {
+        new_index_page->push_back(keys[i], children[i + 1]);
+    }
+    new_index_page->children[0] = children[split_position + 1];
+
+    num_keys -= (new_index_page->num_keys + 1);
+    return SplitResult<INDEX_TYPE> { new_index_page, keys[split_position] };
+}
+
+
+template<DEFINE_INDEX_TYPE>
+auto IndexPage<INDEX_TYPE>::balance(std::streampos seek_parent, IndexPage<INDEX_TYPE>& parent, std::int32_t child_pos) -> void {
+    // TODO
+    throw LogicError();
+}
+
+
+template <DEFINE_INDEX_TYPE>
+auto IndexPage<INDEX_TYPE>::push_front(KeyType& key, std::int64_t child) -> void {
     if (num_keys == this->capacity) {
         throw FullPage();
     }
@@ -117,8 +121,8 @@ auto IndexPage<KeyType>::push_front(KeyType& key, std::int64_t child) -> void {
 }
 
 
-template<typename KeyType>
-auto IndexPage<KeyType>::push_back(KeyType &key, std::int64_t child) -> void {
+template <DEFINE_INDEX_TYPE>
+auto IndexPage<INDEX_TYPE>::push_back(KeyType &key, std::int64_t child) -> void {
     if (num_keys == this->capacity) {
         throw FullPage();
     }
@@ -129,8 +133,8 @@ auto IndexPage<KeyType>::push_back(KeyType &key, std::int64_t child) -> void {
 }
 
 
-template <typename KeyType>
-auto IndexPage<KeyType>::reallocate_references(std::int32_t child_pos, KeyType& new_key, std::int64_t new_page_seek) -> void {
+template <DEFINE_INDEX_TYPE>
+auto IndexPage<INDEX_TYPE>::reallocate_references_after_split(std::int32_t child_pos, KeyType& new_key, std::int64_t new_page_seek) -> void {
     for (int i = num_keys; i > child_pos; --i) {
         keys[i] = keys[i - 1];
         children[i + 1] = children[i];
@@ -141,17 +145,14 @@ auto IndexPage<KeyType>::reallocate_references(std::int32_t child_pos, KeyType& 
     ++num_keys;
 }
 
-template <typename KeyType>
-auto IndexPage<KeyType>::split(std::int32_t split_position) -> SplitResult<KeyType> {
-    auto new_index_page = std::make_shared<IndexPage<KeyType>>(this->capacity, points_to_leaf);
 
-    for (int i = split_position + 1; i < num_keys; ++i) {
-        new_index_page->push_back(keys[i], children[i + 1]);
+template<DEFINE_INDEX_TYPE>
+auto IndexPage<INDEX_TYPE>::reallocate_references_after_merge(std::int32_t merged_child_pos) -> void {
+    for (std::int32_t i = merged_child_pos; i < len() - 1; ++i) {
+        keys[i] = keys[i + 1];
+        children[i + 1] = children[i + 2];
     }
-    new_index_page->children[0] = children[split_position + 1];
-
-    num_keys -= (new_index_page->num_keys + 1);
-    return SplitResult<KeyType> { new_index_page, keys[split_position] };
+    --num_keys;
 }
 
 

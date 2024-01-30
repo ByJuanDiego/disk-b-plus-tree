@@ -7,6 +7,10 @@
 
 #include <stdexcept>
 
+struct LogicError : public virtual std::logic_error {
+    LogicError(): std::logic_error("This line shouldn't be reachable") {}
+};
+
 struct FullPage : public virtual std::runtime_error {
     FullPage(): std::runtime_error("The page is full") {}
 };
