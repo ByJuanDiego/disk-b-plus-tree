@@ -102,7 +102,7 @@ auto BPlusTree<INDEX_TYPE>::display() -> void {
         }
 
         if (trunk.is_leaf) {
-            auto page = std::make_shared<DataPage<INDEX_TYPE>>(metadata_json[DATA_PAGE_CAPACITY].asInt(), this);
+            auto page = std::make_shared<DataPage<INDEX_TYPE>>(this);
             seek(b_plus_index_file, trunk.seek);
             page->read(b_plus_index_file);
 
@@ -114,7 +114,7 @@ auto BPlusTree<INDEX_TYPE>::display() -> void {
         }
 
         else {
-            auto page = std::make_shared<IndexPage<INDEX_TYPE>>(metadata_json[INDEX_PAGE_CAPACITY].asInt(), this);
+            auto page = std::make_shared<IndexPage<INDEX_TYPE>>(this);
             seek(b_plus_index_file, trunk.seek);
             page->read(b_plus_index_file);
 

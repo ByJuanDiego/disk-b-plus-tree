@@ -26,7 +26,7 @@ struct IndexPage: public Page<INDEX_TYPE> {
     std::vector<std::int64_t> children;
     bool points_to_leaf;
 
-    explicit IndexPage(std::int32_t capacity, BPlusTree<INDEX_TYPE>* b_plus, bool points_to_leaf = true);
+    explicit IndexPage(BPlusTree<INDEX_TYPE>* b_plus, bool points_to_leaf = true);
 
     ~IndexPage();
 
@@ -42,6 +42,8 @@ struct IndexPage: public Page<INDEX_TYPE> {
 
     auto balance(std::streampos seek_parent,
                  IndexPage<INDEX_TYPE>& parent, std::int32_t child_pos)      -> void override;
+
+    auto deallocate_root()                                                   -> void override;
 
     auto push_front(KeyType& key, std::int64_t child)                        -> void;
 

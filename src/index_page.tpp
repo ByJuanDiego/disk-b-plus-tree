@@ -5,8 +5,8 @@
 #include "index_page.hpp"
 
 template <DEFINE_INDEX_TYPE>
-IndexPage<INDEX_TYPE>::IndexPage(std::int32_t capacity, BPlusTree<INDEX_TYPE>* b_plus, bool points_to_leaf)
-    : Page<INDEX_TYPE>(capacity, b_plus), num_keys(0), points_to_leaf(points_to_leaf),
+IndexPage<INDEX_TYPE>::IndexPage(BPlusTree<INDEX_TYPE>* b_plus, bool points_to_leaf)
+    : Page<INDEX_TYPE>(b_plus->metadata_json[INDEX_PAGE_CAPACITY].asInt(), b_plus), num_keys(0), points_to_leaf(points_to_leaf),
       keys(this->capacity, KeyType()), children(this->capacity + 1, emptyPage) {
 }
 
@@ -82,7 +82,8 @@ auto IndexPage<INDEX_TYPE>::read(std::fstream &file) -> void {
 
 template <DEFINE_INDEX_TYPE>
 auto IndexPage<INDEX_TYPE>::split(std::int32_t split_position) -> SplitResult<INDEX_TYPE> {
-    auto new_index_page = std::make_shared<IndexPage<INDEX_TYPE>>(this->capacity, this->tree, points_to_leaf);
+    auto new_index_page = std::make_shared<IndexPage<INDEX_TYPE>>(this->tree, points_to_leaf);
+    KeyType new_key = keys[split_position];
 
     for (int i = split_position + 1; i < num_keys; ++i) {
         new_index_page->push_back(keys[i], children[i + 1]);
@@ -90,7 +91,7 @@ auto IndexPage<INDEX_TYPE>::split(std::int32_t split_position) -> SplitResult<IN
     new_index_page->children[0] = children[split_position + 1];
 
     num_keys -= (new_index_page->num_keys + 1);
-    return SplitResult<INDEX_TYPE> { new_index_page, keys[split_position] };
+    return SplitResult<INDEX_TYPE> { new_index_page, new_key };
 }
 
 
@@ -98,6 +99,18 @@ template<DEFINE_INDEX_TYPE>
 auto IndexPage<INDEX_TYPE>::balance(std::streampos seek_parent, IndexPage<INDEX_TYPE>& parent, std::int32_t child_pos) -> void {
     // TODO
     throw LogicError();
+}
+
+
+template<DEFINE_INDEX_TYPE>
+auto IndexPage<INDEX_TYPE>::deallocate_root() -> void {
+    if (len() == 0) {
+        this->tree->metadata_json[SEEK_ROOT] = children[0];
+
+        if (points_to_leaf) {
+            this->tree->metadata_json[ROOT_STATUS] = dataPage;
+        }
+    }
 }
 
 

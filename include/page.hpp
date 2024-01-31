@@ -54,6 +54,8 @@ public:
     virtual auto balance(std::streampos seek_parent,
                          IndexPage<INDEX_TYPE>& parent,
                          std::int32_t child_pos)          -> void = 0;
+
+    virtual auto deallocate_root()         -> void = 0;
 };
 
 
@@ -72,6 +74,7 @@ struct InsertResult {
 
 template <typename KeyType>
 struct RemoveResult {
+    std::size_t size;
     std::shared_ptr<KeyType> predecessor;
 };
 

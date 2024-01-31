@@ -18,11 +18,11 @@ Property::Property(const std::string &directory_path, const std::string &metadat
     // pages size info.
     json[INDEX_PAGE_CAPACITY] = index_page_capacity;
     json[MINIMUM_INDEX_PAGE_KEYS] = static_cast<std::int32_t>(std::ceil(index_page_capacity / 2.0)) - 1;
-    json[NEW_INDEX_PAGE_KEY_POS] = static_cast<std::int32_t>(std::floor(index_page_capacity / 2.0));
+//    json[NEW_INDEX_PAGE_KEY_POS] = static_cast<std::int32_t>(std::floor(index_page_capacity / 2.0));
 
     json[DATA_PAGE_CAPACITY] = data_page_capacity;
     json[MINIMUM_DATA_PAGE_RECORDS] = static_cast<std::int32_t>(std::ceil(data_page_capacity / 2.0)) - 1;
-    json[NEW_DATA_PAGE_NUM_RECORDS] = static_cast<std::int32_t>(std::floor(data_page_capacity / 2.0));
+//    json[NEW_DATA_PAGE_NUM_RECORDS] = static_cast<std::int32_t>(std::floor(data_page_capacity / 2.0));
 
     // B+ tree info.
     json[UNIQUE_KEY] = unique_key;

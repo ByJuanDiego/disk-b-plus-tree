@@ -22,8 +22,8 @@ auto DataPage<KeyType, RecordType, Greater, Index>::len() -> std::size_t {
 
 
 template<DEFINE_INDEX_TYPE>
-DataPage<INDEX_TYPE>::DataPage(int32_t capacity, BPlusTree<INDEX_TYPE>* b_plus)
-        : Page<INDEX_TYPE>(capacity, b_plus), num_records(0), next_leaf(emptyPage), prev_leaf(emptyPage),
+DataPage<INDEX_TYPE>::DataPage(BPlusTree<INDEX_TYPE>* b_plus)
+        : Page<INDEX_TYPE>(b_plus->metadata_json[DATA_PAGE_CAPACITY].asInt(), b_plus), num_records(0), next_leaf(emptyPage), prev_leaf(emptyPage),
           records(this->capacity, RecordType()) {
 }
 
@@ -78,6 +78,104 @@ auto DataPage<INDEX_TYPE>::read(std::fstream &file) -> void {
     }
 
     delete [] buffer;
+}
+
+
+template<DEFINE_INDEX_TYPE>
+auto DataPage<INDEX_TYPE>::split(std::int32_t split_pos) -> SplitResult<INDEX_TYPE> {
+    auto new_data_page = std::make_shared<DataPage<INDEX_TYPE>>(this->tree);
+
+    for (int i = split_pos; i < num_records; ++i) {
+        new_data_page->push_back(records[i]);
+    }
+
+    num_records -= new_data_page->num_records;
+    return SplitResult<INDEX_TYPE> { new_data_page, this->tree->get_indexed_field(records[num_records - 1]) };
+}
+
+
+template<DEFINE_INDEX_TYPE>
+auto DataPage<INDEX_TYPE>::balance(std::streampos seek_parent, IndexPage<INDEX_TYPE>& parent, std::int32_t child_pos) -> void {
+    std::int32_t minimum = this->tree->metadata_json[MINIMUM_DATA_PAGE_RECORDS].asInt();
+    if (num_records >= minimum) {
+        return;
+    }
+
+    DataPage<INDEX_TYPE> left_sibling(this->tree);
+    DataPage<INDEX_TYPE> right_sibling(this->tree);
+
+    if (child_pos > 0) {
+        std::streampos seek_left_sibling = parent.children[child_pos - 1];
+        seek(this->tree->b_plus_index_file, seek_left_sibling);
+        left_sibling.read(this->tree->b_plus_index_file);
+
+        if (left_sibling.num_records > minimum) {
+            // left rotation
+            RecordType to_borrow = left_sibling.pop_back();
+            this->push_front(to_borrow);
+            RecordType left_max_record = left_sibling.max_record();
+            KeyType new_key = this->tree->get_indexed_field(left_max_record);
+            parent.keys[child_pos - 1] = new_key;
+
+            // save changes
+            seek(this->tree->b_plus_index_file, seek_left_sibling);
+            left_sibling.write(this->tree->b_plus_index_file);
+            seek(this->tree->b_plus_index_file, parent.children[child_pos]);
+            this->write(this->tree->b_plus_index_file);
+            seek(this->tree->b_plus_index_file, seek_parent);
+            parent.write(this->tree->b_plus_index_file);
+            return;
+        }
+    } else {
+        std::streampos seek_right_sibling = parent.children[child_pos + 1];
+        seek(this->tree->b_plus_index_file, seek_right_sibling);
+        right_sibling.read(this->tree->b_plus_index_file);
+
+        if (right_sibling.num_records > minimum) {
+            // right rotation
+            RecordType to_borrow = right_sibling.pop_front();
+            this->push_back(to_borrow);
+            KeyType new_key = this->tree->get_indexed_field(to_borrow);
+            parent.keys[child_pos] = new_key;
+
+            // save changes
+            seek(this->tree->b_plus_index_file, seek_right_sibling);
+            right_sibling.write(this->tree->b_plus_index_file);
+            seek(this->tree->b_plus_index_file, parent.children[child_pos]);
+            this->write(this->tree->b_plus_index_file);
+            seek(this->tree->b_plus_index_file, seek_parent);
+            parent.write(this->tree->b_plus_index_file);
+            return;
+        }
+    }
+
+    if (child_pos > 0) {
+        std::streampos seek_left_sibling = parent.children[child_pos - 1];
+        std::shared_ptr<DataPage<INDEX_TYPE>> new_page = left_sibling.merge(*this);
+        parent.reallocate_references_after_merge(child_pos);
+
+        seek(this->tree->b_plus_index_file, seek_left_sibling);
+        new_page->write(this->tree->b_plus_index_file);
+        seek(this->tree->b_plus_index_file, seek_parent);
+        parent.write(this->tree->b_plus_index_file);
+    } else {
+        std::shared_ptr<DataPage<INDEX_TYPE>> new_page = this->merge(right_sibling);
+        parent.reallocate_references_after_merge(child_pos);
+
+        seek(this->tree->b_plus_index_file, parent.children[child_pos]);
+        new_page->write(this->tree->b_plus_index_file);
+        seek(this->tree->b_plus_index_file, seek_parent);
+        parent.write(this->tree->b_plus_index_file);
+    }
+}
+
+
+template<DEFINE_INDEX_TYPE>
+auto DataPage<INDEX_TYPE>::deallocate_root() -> void {
+    if (len() == 0) {
+        this->tree->metadata_json[SEEK_ROOT] = emptyPage;
+        this->tree->metadata_json[ROOT_STATUS] = emptyPage;
+    }
 }
 
 
@@ -172,19 +270,6 @@ auto DataPage<INDEX_TYPE>::sorted_insert(RecordType &record) -> void {
 
 
 template<DEFINE_INDEX_TYPE>
-auto DataPage<INDEX_TYPE>::split(std::int32_t split_pos) -> SplitResult<INDEX_TYPE> {
-    auto new_data_page = std::make_shared<DataPage<INDEX_TYPE>>(this->capacity, this->tree);
-
-    for (int i = split_pos; i < num_records; ++i) {
-        new_data_page->push_back(records[i]);
-    }
-
-    num_records -= new_data_page->num_records;
-    return SplitResult<INDEX_TYPE> { new_data_page, this->tree->get_indexed_field(records[num_records - 1]) };
-}
-
-
-template<DEFINE_INDEX_TYPE>
 auto DataPage<INDEX_TYPE>::remove(KeyType key) -> std::shared_ptr<KeyType> {
     std::int32_t i = 0;
 
@@ -203,93 +288,26 @@ auto DataPage<INDEX_TYPE>::remove(KeyType key) -> std::shared_ptr<KeyType> {
 
     num_records--;
 
+    std::shared_ptr<KeyType> predecessor = nullptr;
+
     if (num_records > 0) {
-        return std::make_shared<KeyType>(this->tree->get_indexed_field(records[num_records - 1]));
+        predecessor = std::make_shared<KeyType>(this->tree->get_indexed_field(records[len() - 1]));
     }
 
-    return nullptr;
-}
-
-
-template<DEFINE_INDEX_TYPE>
-auto DataPage<INDEX_TYPE>::balance(std::streampos seek_parent, IndexPage<INDEX_TYPE>& parent, std::int32_t child_pos) -> void {
-    std::int32_t minimum = this->tree->metadata_json[MINIMUM_DATA_PAGE_RECORDS].asInt();
-    if (num_records >= minimum) {
-        return;
+    if (prev_leaf != emptyPage) {
+        DataPage<INDEX_TYPE> prev_data_page(this->tree);
+        seek(this->tree->b_plus_index_file, prev_leaf);
+        prev_data_page.read(this->tree->b_plus_index_file);
+        predecessor = std::make_shared<KeyType>(this->tree->get_indexed_field(prev_data_page.records[prev_data_page.len() - 1]));
     }
 
-    DataPage<INDEX_TYPE> left_sibling(this->tree->metadata_json[DATA_PAGE_CAPACITY].asInt(), this->tree);
-    DataPage<INDEX_TYPE> right_sibling(this->tree->metadata_json[DATA_PAGE_CAPACITY].asInt(), this->tree);
-
-    if (child_pos > 0) {
-        std::streampos seek_left_sibling = parent.children[child_pos - 1];
-        seek(this->tree->b_plus_index_file, seek_left_sibling);
-        left_sibling.read(this->tree->b_plus_index_file);
-
-        if (left_sibling.num_records > minimum) {
-            // left rotation
-            RecordType to_borrow = left_sibling.pop_back();
-            this->push_front(to_borrow);
-            RecordType left_max_record = left_sibling.max_record();
-            KeyType new_key = this->tree->get_indexed_field(left_max_record);
-            parent.keys[child_pos - 1] = new_key;
-
-            // save changes
-            seek(this->tree->b_plus_index_file, seek_left_sibling);
-            left_sibling.write(this->tree->b_plus_index_file);
-            seek(this->tree->b_plus_index_file, parent.children[child_pos]);
-            this->write(this->tree->b_plus_index_file);
-            seek(this->tree->b_plus_index_file, seek_parent);
-            parent.write(this->tree->b_plus_index_file);
-            return;
-        }
-    } else {
-        std::streampos seek_right_sibling = parent.children[child_pos + 1];
-        seek(this->tree->b_plus_index_file, seek_right_sibling);
-        right_sibling.read(this->tree->b_plus_index_file);
-
-        if (right_sibling.num_records > minimum) {
-            // right rotation
-            RecordType to_borrow = right_sibling.pop_front();
-            this->push_back(to_borrow);
-            KeyType new_key = this->tree->get_indexed_field(to_borrow);
-            parent.keys[child_pos] = new_key;
-
-            // save changes
-            seek(this->tree->b_plus_index_file, seek_right_sibling);
-            right_sibling.write(this->tree->b_plus_index_file);
-            seek(this->tree->b_plus_index_file, parent.children[child_pos]);
-            this->write(this->tree->b_plus_index_file);
-            seek(this->tree->b_plus_index_file, seek_parent);
-            parent.write(this->tree->b_plus_index_file);
-            return;
-        }
-    }
-
-    if (child_pos > 0) {
-        std::streampos seek_left_sibling = parent.children[child_pos - 1];
-        std::shared_ptr<DataPage<INDEX_TYPE>> new_page = left_sibling.merge(*this);
-        parent.reallocate_references_after_merge(child_pos);
-
-        seek(this->tree->b_plus_index_file, seek_left_sibling);
-        new_page->write(this->tree->b_plus_index_file);
-        seek(this->tree->b_plus_index_file, seek_parent);
-        parent.write(this->tree->b_plus_index_file);
-    } else {
-        std::shared_ptr<DataPage<INDEX_TYPE>> new_page = this->merge(right_sibling);
-        parent.reallocate_references_after_merge(child_pos);
-
-        seek(this->tree->b_plus_index_file, parent.children[child_pos]);
-        new_page->write(this->tree->b_plus_index_file);
-        seek(this->tree->b_plus_index_file, seek_parent);
-        parent.write(this->tree->b_plus_index_file);
-    }
+    return predecessor;
 }
 
 
 template<DEFINE_INDEX_TYPE>
 auto DataPage<INDEX_TYPE>::merge(DataPage<INDEX_TYPE> &right_sibling) -> std::shared_ptr<DataPage<INDEX_TYPE>> {
-    DataPage<INDEX_TYPE> new_page(this->tree->metadata_json[DATA_PAGE_CAPACITY].asInt(), this->tree);
+    DataPage<INDEX_TYPE> new_page(this->tree);
 
     for (std::int32_t i = 0; i < len(); ++i) {
         new_page.push_back(records[i]);

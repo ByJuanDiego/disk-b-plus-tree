@@ -26,7 +26,7 @@ struct DataPage: public Page<INDEX_TYPE> {
     std::int64_t prev_leaf;
     std::vector<RecordType> records;
 
-    explicit DataPage(std::int32_t capacity, BPlusTree<INDEX_TYPE>* b_plus);
+    explicit DataPage(BPlusTree<INDEX_TYPE>* b_plus);
 
     ~DataPage() override;
 
@@ -39,6 +39,12 @@ struct DataPage: public Page<INDEX_TYPE> {
     auto len()                                                 -> std::size_t override;
 
     auto split(std::int32_t split_pos)                         -> SplitResult<INDEX_TYPE> override;
+
+    auto balance(std::streampos seek_parent,
+                 IndexPage<INDEX_TYPE>& parent,
+                 std::int32_t child_pos)                       -> void override;
+
+    auto deallocate_root()                      -> void override;
 
     auto push_front(RecordType& record)                        -> void;
 
@@ -55,10 +61,6 @@ struct DataPage: public Page<INDEX_TYPE> {
     auto sorted_insert(RecordType& record)                     -> void;
 
     auto remove(KeyType key)                                   -> std::shared_ptr<KeyType>;
-
-    auto balance(std::streampos seek_parent,
-                 IndexPage<INDEX_TYPE>& parent,
-                 std::int32_t child_pos)                       -> void override;
 
     auto merge(DataPage<INDEX_TYPE>& right_sibling)            -> std::shared_ptr<DataPage<INDEX_TYPE>>;
 };
