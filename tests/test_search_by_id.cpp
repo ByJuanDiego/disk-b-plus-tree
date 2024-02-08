@@ -12,10 +12,19 @@
 #include "record.hpp"
 
 
-void search_test(BPlusTree<std::int32_t, Record>& tree, const int number_of_records, double const thresh_hold = 0.45) {
-    int const min = std::ceil(number_of_records * thresh_hold);
-    int const max = static_cast<int>(number_of_records - min);
+void search_test(BPlusTree<std::int32_t, Record> &tree, const int number_of_records) {
+    for (std::int32_t i = 1; i <= number_of_records; ++i) {
+        std::vector<Record> const recovered = tree.search(i);
+        int const EXPECTED_SIZE = 1;
+        std::size_t const SEARCH_SIZE = recovered.size();
+        assert(EXPECTED_SIZE == SEARCH_SIZE);
+    }
+}
 
+
+void search_between_test(BPlusTree<std::int32_t, Record> &tree, const int number_of_records) {
+    int const min = (number_of_records * 3) / 7;
+    int const max = number_of_records - min;
     for (std::int32_t j = min; j <= max; ++j) {
         for (std::int32_t k = j; k <= max; ++k) {
             std::vector<Record> const recovered = tree.between(j, k);
@@ -28,7 +37,29 @@ void search_test(BPlusTree<std::int32_t, Record>& tree, const int number_of_reco
 }
 
 
-auto main(int argc, char* argv[]) -> int {
+void search_above_test(BPlusTree<std::int32_t, Record> &tree, const int number_of_records) {
+    for (std::int32_t i = 1; i < number_of_records; ++i) {
+        std::vector<Record> recovered = tree.above(i);
+        int const EXPECTED_SIZE = number_of_records - i + 1;
+        std::size_t const SEARCH_SIZE = recovered.size();
+
+        assert(EXPECTED_SIZE == SEARCH_SIZE);
+    }
+}
+
+
+void search_below_test(BPlusTree<std::int32_t, Record> &tree, const int number_of_records) {
+    for (std::int32_t i = number_of_records; i >= 1; --i) {
+        std::vector<Record> recovered = tree.below(i);
+        int const EXPECTED_SIZE = i;
+        std::size_t const SEARCH_SIZE = recovered.size();
+
+        assert(EXPECTED_SIZE == SEARCH_SIZE);
+    }
+}
+
+
+auto main(int argc, char *argv[]) -> int {
     if (argc < 3) {
         return EXIT_FAILURE;
     }
@@ -41,7 +72,7 @@ auto main(int argc, char* argv[]) -> int {
     bool const unique = true;
     std::string const path = "./index/record/";
 
-    std::function<std::int32_t(Record&)> const get_indexed_field = [](Record& record) {
+    std::function<std::int32_t(Record &)> const get_indexed_field = [](Record &record) {
         return record.id;
     };
 
@@ -60,6 +91,9 @@ auto main(int argc, char* argv[]) -> int {
 
         BPlusTree<std::int32_t, Record> btree(property, get_indexed_field);
         search_test(btree, NUMBER_OF_RECORDS);
+        search_above_test(btree, NUMBER_OF_RECORDS);
+        search_below_test(btree, NUMBER_OF_RECORDS);
+        search_between_test(btree, NUMBER_OF_RECORDS);
         std::cout << "Passed tests for index #" << TEST << "\n";
     }
 

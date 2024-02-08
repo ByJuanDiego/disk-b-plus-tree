@@ -10,6 +10,7 @@ set(SRC_FILES
         src/bplustree.tpp
         src/data_page.tpp
         src/index_page.tpp
+        src/page.tpp
         src/property.cpp
 )
 
@@ -28,20 +29,22 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_executable(${PROJECT_NAME} main.cpp)
 add_executable(between_by_id examples/between_by_id.cpp)
 add_executable(insert_by_id examples/insert_by_id.cpp)
-add_executable(test_between_by_id tests/test_between_by_id.cpp)
+add_executable(test_search_by_id tests/test_search_by_id.cpp)
 add_executable(test_insert_by_id tests/test_insert_by_id.cpp)
+add_executable(test_remove_by_id tests/test_remove_by_id.cpp)
 
 # Add common include directories
 foreach(dir ${INCLUDE_DIRS})
     target_include_directories(${PROJECT_NAME} PRIVATE ${dir})
     target_include_directories(between_by_id PRIVATE ${dir})
     target_include_directories(insert_by_id PRIVATE ${dir})
-    target_include_directories(test_between_by_id PRIVATE ${dir})
+    target_include_directories(test_search_by_id PRIVATE ${dir})
     target_include_directories(test_insert_by_id PRIVATE ${dir})
+    target_include_directories(test_remove_by_id PRIVATE ${dir})
 endforeach()
 
 # Set compile features for all targets
-foreach(target ${PROJECT_NAME} between_by_id insert_by_id test_between_by_id test_insert_by_id)
+foreach(target ${PROJECT_NAME} between_by_id insert_by_id test_search_by_id test_insert_by_id test_remove_by_id)
     target_compile_features(${target} PRIVATE cxx_std_20)
 endforeach()
 
@@ -51,7 +54,7 @@ pkg_check_modules(JSONCPP QUIET jsoncpp)
 
 if(JSONCPP_FOUND)
     # Link JSONCPP libraries
-    foreach(target ${PROJECT_NAME} between_by_id insert_by_id test_between_by_id test_insert_by_id)
+    foreach(target ${PROJECT_NAME} between_by_id insert_by_id test_search_by_id test_insert_by_id test_remove_by_id)
         target_link_libraries(${target} PRIVATE ${JSONCPP_LIBRARIES})
     endforeach()
 else()
@@ -59,7 +62,7 @@ else()
 endif()
 
 # Add source files to targets
-foreach(target ${PROJECT_NAME} between_by_id insert_by_id test_between_by_id test_insert_by_id)
+foreach(target ${PROJECT_NAME} between_by_id insert_by_id test_search_by_id test_insert_by_id test_remove_by_id)
     target_sources(${target} PRIVATE ${SRC_FILES})
 endforeach()
 

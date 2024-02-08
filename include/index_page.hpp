@@ -45,15 +45,21 @@ struct IndexPage: public Page<INDEX_TYPE> {
 
     auto deallocate_root()                                                   -> void override;
 
-    auto push_front(KeyType& key, std::int64_t child)                        -> void;
+    auto push_front(KeyType& key, std::streampos child)                      -> void;
 
-    auto push_back(KeyType& key, std::int64_t child)                         -> void;
+    auto push_back(KeyType& key, std::streampos child)                       -> void;
+
+    auto pop_front()                                                         -> std::pair<KeyType, std::streampos>;
+
+    auto pop_back()                                                          -> std::pair<KeyType, std::streampos>;
 
     auto reallocate_references_after_split(std::int32_t child_pos,
                                             KeyType& new_key,
                                             std::int64_t new_page_seek)      -> void;
 
     auto reallocate_references_after_merge(std::int32_t merged_child_pos)    -> void;
+
+    auto merge(IndexPage<INDEX_TYPE>& right_sibling, KeyType& new_key)       -> void;
 };
 
 

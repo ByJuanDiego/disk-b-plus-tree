@@ -19,8 +19,6 @@ const std::string METADATA_FULL_PATH = "metadata_full_path";
 const std::string UNIQUE_KEY = "unique_key";
 const std::string ROOT_STATUS = "root_status";
 const std::string SEEK_ROOT = "seek_root";
-const std::string FIRST_DATA_PAGE = "seek_first_data_page";
-const std::string LAST_DATA_PAGE = "seek_last_data_page";
 
 struct Property {
 private:

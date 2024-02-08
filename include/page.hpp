@@ -45,6 +45,9 @@ public:
 
     virtual ~Page() = default;
 
+    auto save(std::streampos pos)                         -> void;
+    auto load(std::streampos pos)                         -> void;
+
     virtual auto write(std::fstream & file)               -> void = 0;
     virtual auto read(std::fstream & file)                -> void = 0;
 
@@ -68,7 +71,7 @@ struct SplitResult {
 
 // Gets the size of the previous page after inserting (it is used recursively)
 struct InsertResult {
-    std::int32_t size;
+    std::size_t size;
 };
 
 
@@ -79,5 +82,6 @@ struct RemoveResult {
 };
 
 
+#include "page.tpp"
 
 #endif //B_PLUS_TREE_PAGE_HPP

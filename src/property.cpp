@@ -28,8 +28,6 @@ Property::Property(const std::string &directory_path, const std::string &metadat
     json[UNIQUE_KEY] = unique_key;
     json[ROOT_STATUS] = empty_page;
     json[SEEK_ROOT] = empty_page;
-    json[FIRST_DATA_PAGE] = empty_page;
-    json[LAST_DATA_PAGE] = empty_page;
 }
 
 

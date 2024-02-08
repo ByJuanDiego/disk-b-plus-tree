@@ -62,7 +62,7 @@ struct DataPage: public Page<INDEX_TYPE> {
 
     auto remove(KeyType key)                                   -> std::shared_ptr<KeyType>;
 
-    auto merge(DataPage<INDEX_TYPE>& right_sibling)            -> std::shared_ptr<DataPage<INDEX_TYPE>>;
+    auto merge(DataPage<INDEX_TYPE>& right_sibling)            -> void;
 };
 
 

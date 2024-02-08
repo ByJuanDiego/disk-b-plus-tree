@@ -7,9 +7,11 @@ void displayMenu() {
     std::cout << "             B+ TREE MENU                " << std::endl;
     std::cout << "*****************************************" << std::endl;
     std::cout << "[1] Insert" << std::endl;
-    std::cout << "[2] Search" << std::endl;
-    std::cout << "[3] Remove" << std::endl;
-    std::cout << "[4] Display Tree" << std::endl;
+    std::cout << "[2] Key Search" << std::endl;
+    std::cout << "[3] Range Search" << std::endl;
+    std::cout << "[4] Above-Key Search" << std::endl;
+    std::cout << "[5] Below-Key Search" << std::endl;
+    std::cout << "[6] Remove" << std::endl;
     std::cout << "[0] Exit" << std::endl;
     std::cout << "*****************************************" << std::endl;
     std::cout << "Enter your choice: ";
@@ -60,23 +62,49 @@ auto main() -> int {
                 std::cout << "Enter key to search: ";
                 std::cin >> key;
                 std::vector<Record> recovered = bPlusTree.search(key);
-                std::cout << "Recovered records:\n";
                 for (Record& record: recovered) {
-
                     std::cout << record << "\n";
                 }
                 break;
             }
             case 3: {
+                int l, u;
+                std::cout << "Enter lower bound: ";
+                std::cin >> l;
+                std::cout << "Enter upper bound: ";
+                std::cin >> u;
+                std::vector<Record> recovered = bPlusTree.between(l, u);
+                std::cout << "Recovered records:\n";
+                for (Record& record: recovered) {
+                    std::cout << record << "\n";
+                }
+                break;
+            }
+            case 4: {
+                int key;
+                std::cout << "Enter lower bound: ";
+                std::cin >> key;
+                std::vector<Record> recovered = bPlusTree.above(key);
+                for (Record& record: recovered) {
+                    std::cout << record << "\n";
+                }
+                break;
+            }
+            case 5: {
+                int key;
+                std::cout << "Enter upper bound: ";
+                std::cin >> key;
+                std::vector<Record> recovered = bPlusTree.below(key);
+                for (Record& record: recovered) {
+                    std::cout << record << "\n";
+                }
+                break;
+            }
+            case 6: {
                 int key;
                 std::cout << "Enter key to remove: ";
                 std::cin >> key;
                 bPlusTree.remove(key);
-                break;
-            }
-            case 4: {
-                bPlusTree.display();
-                std::cout << std::endl;
                 break;
             }
             case 0: {
@@ -87,11 +115,6 @@ auto main() -> int {
                 std::cout << "Invalid choice. Please enter a valid option." << std::endl;
                 break;
             }
-        }
-
-        if (choice != 4 && choice != 0) {
-            bPlusTree.display();
-            std::cout << std::endl;
         }
     } while (choice != 0);
 

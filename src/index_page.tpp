@@ -97,17 +97,80 @@ auto IndexPage<INDEX_TYPE>::split(std::int32_t split_position) -> SplitResult<IN
 
 template<DEFINE_INDEX_TYPE>
 auto IndexPage<INDEX_TYPE>::balance(std::streampos seek_parent, IndexPage<INDEX_TYPE>& parent, std::int32_t child_pos) -> void {
-    // TODO
-    throw LogicError();
+    std::int32_t minimum = this->tree->metadata_json[MINIMUM_DATA_PAGE_RECORDS].asInt();
+    if (len() >= minimum) {
+        return;
+    }
+
+    IndexPage<INDEX_TYPE> left_sibling(this->tree);
+    IndexPage<INDEX_TYPE> right_sibling(this->tree);
+
+    if (child_pos > 0) {
+        std::streampos seek_left_sibling = parent.children[child_pos - 1];
+        seek(this->tree->b_plus_index_file, seek_left_sibling);
+        left_sibling.read(this->tree->b_plus_index_file);
+
+        if (left_sibling.len() > minimum) {
+            // left-borrow
+            auto [last_key, last_child] = left_sibling.pop_back();
+            this->push_front(parent.keys[child_pos - 1], last_child);
+            parent.keys[child_pos - 1] = last_key;
+
+            // save changes
+            left_sibling.save(seek_left_sibling);
+            this->save(parent.children[child_pos]);
+            parent.save(seek_parent);
+            return;
+        }
+    }
+    else {
+        std::streampos seek_right_sibling = parent.children[1];
+        seek(this->tree->b_plus_index_file, seek_right_sibling);
+        right_sibling.read(this->tree->b_plus_index_file);
+
+        if (right_sibling.len() > minimum) {
+            // right-borrow
+            auto [first_key, first_child] = right_sibling.pop_front();
+            this->push_back(parent.keys[0], first_child);
+            parent.keys[0] = first_key;
+
+            // save changes
+            right_sibling.save(seek_right_sibling);
+            this->save(parent.children[0]);
+            parent.save(seek_parent);
+            return;
+        }
+    }
+
+    if (child_pos > 0) {
+        std::streampos seek_left_sibling = parent.children[child_pos - 1];
+        // left-merge
+        left_sibling.merge(*this, parent.keys[child_pos - 1]);
+        parent.reallocate_references_after_merge(child_pos - 1);
+
+        // save changes
+        left_sibling.save(seek_left_sibling);
+        parent.save(seek_parent);
+    } else {
+        // right-merge
+        this->merge(right_sibling, parent.keys[0]);
+        parent.reallocate_references_after_merge(0);
+
+        // save changes
+        this->save(parent.children[0]);
+        parent.save(seek_parent);
+    }
 }
 
 
 template<DEFINE_INDEX_TYPE>
 auto IndexPage<INDEX_TYPE>::deallocate_root() -> void {
     if (len() == 0) {
+        std::cout << "new root" << std::endl;
         this->tree->metadata_json[SEEK_ROOT] = children[0];
 
         if (points_to_leaf) {
+            std::cout << "now points to leaf" << std::endl;
             this->tree->metadata_json[ROOT_STATUS] = dataPage;
         }
     }
@@ -115,7 +178,7 @@ auto IndexPage<INDEX_TYPE>::deallocate_root() -> void {
 
 
 template <DEFINE_INDEX_TYPE>
-auto IndexPage<INDEX_TYPE>::push_front(KeyType& key, std::int64_t child) -> void {
+auto IndexPage<INDEX_TYPE>::push_front(KeyType& key, std::streampos child) -> void {
     if (num_keys == this->capacity) {
         throw FullPage();
     }
@@ -135,7 +198,7 @@ auto IndexPage<INDEX_TYPE>::push_front(KeyType& key, std::int64_t child) -> void
 
 
 template <DEFINE_INDEX_TYPE>
-auto IndexPage<INDEX_TYPE>::push_back(KeyType &key, std::int64_t child) -> void {
+auto IndexPage<INDEX_TYPE>::push_back(KeyType &key, std::streampos child) -> void {
     if (num_keys == this->capacity) {
         throw FullPage();
     }
@@ -147,8 +210,40 @@ auto IndexPage<INDEX_TYPE>::push_back(KeyType &key, std::int64_t child) -> void 
 
 
 template <DEFINE_INDEX_TYPE>
+auto IndexPage<INDEX_TYPE>::pop_front() -> std::pair<KeyType, std::streampos> {
+    if (len() == 0) {
+        throw EmptyPage();
+    }
+
+    KeyType key = keys[0];
+    for (std::int32_t i = 0; i < len() - 1; ++i) {
+        keys[i] = keys[i + 1];
+    }
+
+    std::streampos child = children[0];
+    for (std::int32_t i = 0; i < len(); ++i) {
+        children[i] = children[i + 1];
+    }
+
+    --num_keys;
+    return std::make_pair(key, child);
+}
+
+
+template <DEFINE_INDEX_TYPE>
+auto IndexPage<INDEX_TYPE>::pop_back() -> std::pair<KeyType, std::streampos> {
+    if (len() == 0) {
+        throw EmptyPage();
+    }
+
+    --num_keys;
+    return std::make_pair(keys[num_keys], children[num_keys + 1]);
+}
+
+
+template <DEFINE_INDEX_TYPE>
 auto IndexPage<INDEX_TYPE>::reallocate_references_after_split(std::int32_t child_pos, KeyType& new_key, std::int64_t new_page_seek) -> void {
-    for (int i = num_keys; i > child_pos; --i) {
+    for (int i = len(); i > child_pos; --i) {
         keys[i] = keys[i - 1];
         children[i + 1] = children[i];
     }
@@ -166,6 +261,15 @@ auto IndexPage<INDEX_TYPE>::reallocate_references_after_merge(std::int32_t merge
         children[i + 1] = children[i + 2];
     }
     --num_keys;
+}
+
+
+template<DEFINE_INDEX_TYPE>
+auto IndexPage<INDEX_TYPE>::merge(IndexPage<INDEX_TYPE> &right_sibling, KeyType& new_key) -> void {
+    push_back(new_key, right_sibling.children[0]);
+    for (std::int32_t i = 0; i < right_sibling.len(); ++i) {
+        push_back(right_sibling.keys[i], right_sibling.children[i + 1]);
+    }
 }
 
 
