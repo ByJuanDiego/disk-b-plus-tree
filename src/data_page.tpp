@@ -95,7 +95,50 @@ auto DataPage<INDEX_TYPE>::split(std::int32_t split_pos) -> SplitResult<INDEX_TY
 
 
 template<DEFINE_INDEX_TYPE>
-auto DataPage<INDEX_TYPE>::balance(std::streampos seek_parent, IndexPage<INDEX_TYPE>& parent, std::int32_t child_pos) -> void {
+auto DataPage<INDEX_TYPE>::balance_page_insert(std::streampos seek_parent,
+                                               IndexPage<KeyType, RecordType, Greater, Index> &parent,
+                                               std::int32_t child_pos) -> void {
+    std::streampos child_seek = parent.children[child_pos];
+    // Create a new data page to accommodate the split
+    SplitResult<INDEX_TYPE> split = this->split(this->tree->metadata_json[DATA_PAGE_CAPACITY].asInt() / 2);
+    auto new_page = std::dynamic_pointer_cast<DataPage<INDEX_TYPE>>(split.new_page);
+
+    // Seek to the end of the B+Tree index file to append the new page
+    seek(this->tree->b_plus_index_file, 0, std::ios::end);
+    std::streampos new_page_seek = this->tree->b_plus_index_file.tellp();
+
+    // Set the previous leaf pointer of the new page
+    new_page->prev_leaf = child_seek;
+
+    std::streampos next_leaf_seek = this->next_leaf;
+    if (next_leaf_seek != emptyPage) {
+        new_page->next_leaf = next_leaf_seek;
+
+        DataPage<INDEX_TYPE> next_page(this->tree);
+        next_page.load(next_leaf_seek);
+        next_page.prev_leaf = new_page_seek;
+        next_page.save(next_leaf_seek);
+    }
+
+    // Write the new data page to the B+Tree index file
+    new_page->save(new_page_seek);
+
+    // Update the next leaf pointer of the old page to point to the new page
+    this->next_leaf = new_page_seek;
+
+    // Seek to the location of the old page in the index file and update it
+    this->save(child_seek);
+
+    // Update references to data pages in the parent index page
+    parent.reallocate_references_after_split(child_pos, split.split_key, new_page_seek);
+
+    // Seek to the location of the parent index page in the index file and update it
+    parent.save(seek_parent);
+}
+
+
+template<DEFINE_INDEX_TYPE>
+auto DataPage<INDEX_TYPE>::balance_page_remove(std::streampos seek_parent, IndexPage<INDEX_TYPE>& parent, std::int32_t child_pos) -> void {
     std::int32_t minimum = this->tree->metadata_json[MINIMUM_DATA_PAGE_RECORDS].asInt();
     if (len() >= minimum) {
         return;
@@ -184,8 +227,36 @@ auto DataPage<INDEX_TYPE>::balance(std::streampos seek_parent, IndexPage<INDEX_T
 }
 
 
+template<typename KeyType, typename RecordType, typename Greater, typename Index>
+auto DataPage<KeyType, RecordType, Greater, Index>::balance_root_insert(std::streampos old_root_seek) -> void {
+    SplitResult<INDEX_TYPE> split = this->split(this->tree->metadata_json[DATA_PAGE_CAPACITY].asInt() / 2);
+    auto new_page = std::dynamic_pointer_cast<DataPage<INDEX_TYPE>>(split.new_page);
+
+    new_page->prev_leaf = old_root_seek;
+    seek(this->tree->b_plus_index_file, 0, std::ios::end);
+    std::streampos new_page_seek = this->tree->b_plus_index_file.tellp();
+    new_page->write(this->tree->b_plus_index_file);
+
+    this->next_leaf = new_page_seek;
+    this->save(old_root_seek);
+
+    IndexPage<INDEX_TYPE> new_root(this->tree);
+    new_root.keys[0] = split.split_key;
+    new_root.children[0] = old_root_seek;
+    new_root.children[1] = new_page_seek;
+    new_root.num_keys = 1;
+
+    seek(this->tree->b_plus_index_file, 0, std::ios::end);
+    std::streampos new_root_seek = this->tree->b_plus_index_file.tellp();
+    new_root.write(this->tree->b_plus_index_file);
+
+    this->tree->metadata_json[SEEK_ROOT] = static_cast<Json::Int64>(new_root_seek);
+    this->tree->metadata_json[ROOT_STATUS] = indexPage;
+}
+
+
 template<DEFINE_INDEX_TYPE>
-auto DataPage<INDEX_TYPE>::deallocate_root() -> void {
+auto DataPage<INDEX_TYPE>::balance_root_remove() -> void {
     if (len() == 0) {
         this->tree->metadata_json[SEEK_ROOT] = emptyPage;
         this->tree->metadata_json[ROOT_STATUS] = emptyPage;
@@ -252,16 +323,6 @@ auto DataPage<INDEX_TYPE>::max_record() -> RecordType  {
     }
 
     return records[num_records - 1];
-}
-
-
-template<typename KeyType, typename RecordType, typename Greater, typename Index>
-auto DataPage<KeyType, RecordType, Greater, Index>::min_record() -> RecordType {
-    if (num_records == 0) {
-        throw EmptyPage();
-    }
-
-    return records[0];
 }
 
 

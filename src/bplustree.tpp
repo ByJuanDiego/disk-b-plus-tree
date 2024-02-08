@@ -51,7 +51,7 @@ template<DEFINE_INDEX_TYPE>
 auto BPlusTree<INDEX_TYPE>::locate_data_page(const KeyType &key) -> std::streampos {
     switch (metadata_json[ROOT_STATUS].asInt()) {
         case emptyPage: {
-            throw KeyNotFound();
+            return emptyPage;
         }
         case dataPage: {
             return metadata_json[SEEK_ROOT].asInt();
@@ -74,7 +74,7 @@ auto BPlusTree<INDEX_TYPE>::locate_data_page(const KeyType &key) -> std::streamp
             return seek_page;
         }
     }
-    throw KeyNotFound();
+    throw LogicError();
 }
 
 
@@ -105,146 +105,20 @@ auto BPlusTree<INDEX_TYPE>::insert(std::streampos seek_page, PageType type,
     InsertResult prev_page_status = this->insert(child_seek, children_type, record);
 
     // Conditionally splits a page if it's full
+    std::shared_ptr<Page<INDEX_TYPE>> child = nullptr;
     if (children_type == dataPage && (prev_page_status.size == metadata_json[DATA_PAGE_CAPACITY].asInt())) {
-        balance_data_page(index_page, child_pos, seek_page, child_seek);
+        child = std::make_shared<DataPage<INDEX_TYPE>>(this);
     } else if (children_type == indexPage && (prev_page_status.size == metadata_json[INDEX_PAGE_CAPACITY].asInt())) {
-        balance_index_page(index_page, child_pos, seek_page, child_seek);
+        child = std::make_shared<IndexPage<INDEX_TYPE>>(this);
+    }
+
+    if (child) {
+        child->load(child_seek);
+        child->balance_page_insert(seek_page, index_page, child_pos);
     }
 
     // We track the current number of keys to the upcoming state, so it can handle the logic for the page split
     return InsertResult { index_page.len() };
-}
-
-
-template<DEFINE_INDEX_TYPE>
-auto BPlusTree<INDEX_TYPE>::balance_index_page(IndexPage<INDEX_TYPE>& index_page,
-                                                                        std::int32_t child_pos,
-                                                                        std::streampos seek_page,
-                                                                        std::streampos child_seek) -> void {
-    IndexPage<INDEX_TYPE> full_page(this);
-    full_page.load(child_seek);
-
-    SplitResult<INDEX_TYPE> split = full_page.split(metadata_json[INDEX_PAGE_CAPACITY].asInt() / 2);
-    auto new_page = std::dynamic_pointer_cast<IndexPage<INDEX_TYPE>>(split.new_page);
-
-    seek(b_plus_index_file, 0, std::ios::end);
-    std::streampos new_page_seek = b_plus_index_file.tellp();
-    new_page->write(b_plus_index_file);
-
-    full_page.save(child_seek);
-
-    index_page.reallocate_references_after_split(child_pos, split.split_key, new_page_seek);
-
-    // Seek to the location of the parent index page in the index file and update it
-    index_page.save(seek_page);
-}
-
-
-template<DEFINE_INDEX_TYPE>
-auto BPlusTree<INDEX_TYPE>::balance_data_page(IndexPage<INDEX_TYPE>& index_page,
-                                                                       std::int32_t child_pos,
-                                                                       std::streampos seek_page,
-                                                                       std::streampos child_seek) -> void {
-    // Load the full data page from disk
-    DataPage<INDEX_TYPE> full_page(this);
-    full_page.load(child_seek);
-
-    // Create a new data page to accommodate the split
-    SplitResult<INDEX_TYPE> split = full_page.split(metadata_json[DATA_PAGE_CAPACITY].asInt() / 2);
-    auto new_page = std::dynamic_pointer_cast<DataPage<INDEX_TYPE>>(split.new_page);
-
-    // Seek to the end of the B+Tree index file to append the new page
-    seek(b_plus_index_file, 0, std::ios::end);
-    std::streampos new_page_seek = b_plus_index_file.tellp();
-
-    // Set the previous leaf pointer of the new page
-    new_page->prev_leaf = child_seek;
-
-    std::streampos next_leaf_seek = full_page.next_leaf;
-    if (next_leaf_seek != emptyPage) {
-        new_page->next_leaf = next_leaf_seek;
-
-        DataPage<INDEX_TYPE> next_page(this);
-        next_page.load(next_leaf_seek);
-        next_page.prev_leaf = new_page_seek;
-        next_page.save(next_leaf_seek);
-    }
-
-    // Write the new data page to the B+Tree index file
-    new_page->save(new_page_seek);
-
-    // Update the next leaf pointer of the old page to point to the new page
-    full_page.next_leaf = new_page_seek;
-
-    // Seek to the location of the old page in the index file and update it
-    full_page.save(child_seek);
-
-    // Update references to data pages in the parent index page
-    index_page.reallocate_references_after_split(child_pos, split.split_key, new_page_seek);
-
-    // Seek to the location of the parent index page in the index file and update it
-    index_page.save(seek_page);
-}
-
-
-template<DEFINE_INDEX_TYPE>
-auto BPlusTree<INDEX_TYPE>::balance_root_data_page() -> void {
-    DataPage<INDEX_TYPE> old_root(this);
-
-    std::streampos old_root_seek = metadata_json[SEEK_ROOT].asLargestInt();
-    old_root.load(old_root_seek);
-
-    SplitResult<INDEX_TYPE> split = old_root.split(metadata_json[DATA_PAGE_CAPACITY].asInt() / 2);
-    auto new_page = std::dynamic_pointer_cast<DataPage<INDEX_TYPE>>(split.new_page);
-
-    new_page->prev_leaf = old_root_seek;
-    seek(b_plus_index_file, 0, std::ios::end);
-    std::streampos new_page_seek = b_plus_index_file.tellp();
-    new_page->write(b_plus_index_file);
-
-    old_root.next_leaf = new_page_seek;
-    old_root.save(old_root_seek);
-
-    IndexPage<INDEX_TYPE> new_root(this);
-    new_root.keys[0] = split.split_key;
-    new_root.children[0] = old_root_seek;
-    new_root.children[1] = new_page_seek;
-    new_root.num_keys = 1;
-
-    seek(b_plus_index_file, 0, std::ios::end);
-    std::streampos new_root_seek = b_plus_index_file.tellp();
-    new_root.write(b_plus_index_file);
-
-    metadata_json[SEEK_ROOT] = static_cast<Json::Int64>(new_root_seek);
-    metadata_json[ROOT_STATUS] = indexPage;
-}
-
-
-template<DEFINE_INDEX_TYPE>
-auto BPlusTree<INDEX_TYPE>::balance_root_index_page() -> void {
-    std::streampos old_root_seek = metadata_json[SEEK_ROOT].asLargestInt();
-    IndexPage<INDEX_TYPE> old_root(this);
-    old_root.load(old_root_seek);
-
-    SplitResult<INDEX_TYPE> split = old_root.split(metadata_json[INDEX_PAGE_CAPACITY].asInt() / 2);
-    auto new_page = std::dynamic_pointer_cast<IndexPage<INDEX_TYPE>>(split.new_page);
-    seek(b_plus_index_file, 0, std::ios::end);
-    std::streampos new_page_seek = b_plus_index_file.tellp();
-    new_page->write(b_plus_index_file);
-
-    old_root.save(old_root_seek);
-
-    IndexPage<INDEX_TYPE> new_root(this, false);
-    new_root.num_keys = 1;
-    new_root.keys[0] = split.split_key;
-    new_root.children[0] = old_root_seek;
-    new_root.children[1] = new_page_seek;
-
-    seek(b_plus_index_file, 0, std::ios::end);
-    std::streampos new_root_seek = b_plus_index_file.tellp();
-    new_root.write(b_plus_index_file);
-
-    metadata_json[SEEK_ROOT] = static_cast<Json::Int64>(new_root_seek);
 }
 
 
@@ -285,11 +159,18 @@ auto BPlusTree<INDEX_TYPE>::insert(RecordType &record) -> void {
 
         // At the end of the recursive calls generated above, we must check (as a base case) if the root page is full
         // and needs to be split.
+        std::shared_ptr<Page<INDEX_TYPE>> root = nullptr;
         if (root_page_type == dataPage && (result.size == metadata_json[DATA_PAGE_CAPACITY].asInt())) {
-            balance_root_data_page();
+            root = std::make_shared<DataPage<INDEX_TYPE>>(this);
         }
         else if (root_page_type == indexPage && (result.size == metadata_json[INDEX_PAGE_CAPACITY].asInt())) {
-            balance_root_index_page();
+            root = std::make_shared<IndexPage<INDEX_TYPE>>(this);
+        }
+
+        if (root) {
+            std::streampos old_root_seek = metadata_json[SEEK_ROOT].asLargestInt();
+            root->load(old_root_seek);
+            root->balance_root_insert(old_root_seek);
         }
     }
 
@@ -305,6 +186,9 @@ template<DEFINE_INDEX_TYPE>
 auto BPlusTree<INDEX_TYPE>::search(const KeyType &key) -> std::vector<RecordType> {
     open(b_plus_index_file, metadata_json[INDEX_FULL_PATH].asString(), std::ios::in);
     std::streampos seek_page = locate_data_page(key);
+    if (seek_page == emptyPage) {
+        return {};
+    }
 
     std::vector<RecordType> located_records;
     DataPage<INDEX_TYPE> data_page(this);
@@ -317,9 +201,6 @@ auto BPlusTree<INDEX_TYPE>::search(const KeyType &key) -> std::vector<RecordType
                 continue;
             }
             if (gt(get_indexed_field(data_page.records[i]), key)) {
-                if (located_records.empty()) {
-                    throw KeyNotFound();
-                }
                 close(b_plus_index_file);
                 return located_records;
             }
@@ -337,6 +218,9 @@ template<DEFINE_INDEX_TYPE>
 auto BPlusTree<INDEX_TYPE>::above(const KeyType &lower_bound) -> std::vector<RecordType> {
     open(b_plus_index_file, metadata_json[INDEX_FULL_PATH].asString(), std::ios::in);
     std::streampos seek_page = locate_data_page(lower_bound);
+    if (seek_page == emptyPage) {
+        return {};
+    }
 
     std::vector<RecordType> located_records;
     DataPage<INDEX_TYPE> data_page(this);
@@ -355,10 +239,6 @@ auto BPlusTree<INDEX_TYPE>::above(const KeyType &lower_bound) -> std::vector<Rec
     } while (seek_page != emptyPage);
 
     close(b_plus_index_file);
-
-    if (located_records.empty()) {
-        throw KeyNotFound();
-    }
     return located_records;
 }
 
@@ -367,6 +247,9 @@ template<DEFINE_INDEX_TYPE>
 auto BPlusTree<INDEX_TYPE>::below(const KeyType &upper_bound) -> std::vector<RecordType> {
     open(b_plus_index_file, metadata_json[INDEX_FULL_PATH].asString(), std::ios::in);
     std::streampos seek_page = locate_data_page(upper_bound);
+    if (seek_page == emptyPage) {
+        return {};
+    }
 
     std::vector<RecordType> located_records;
     DataPage<INDEX_TYPE> data_page(this);
@@ -385,10 +268,6 @@ auto BPlusTree<INDEX_TYPE>::below(const KeyType &upper_bound) -> std::vector<Rec
     } while (seek_page != emptyPage);
 
     close(b_plus_index_file);
-
-    if (located_records.empty()) {
-        throw KeyNotFound();
-    }
     return located_records;
 }
 
@@ -398,6 +277,9 @@ auto BPlusTree<INDEX_TYPE>::between(const KeyType &lower_bound,
                                     const KeyType &upper_bound) -> std::vector<RecordType> {
     open(b_plus_index_file, metadata_json[INDEX_FULL_PATH].asString(), std::ios::in);
     std::streampos seek_page = locate_data_page(lower_bound);
+    if (seek_page == emptyPage) {
+        return {};
+    }
 
     std::vector<RecordType> located_records;
     DataPage<INDEX_TYPE> data_page(this);
@@ -411,9 +293,6 @@ auto BPlusTree<INDEX_TYPE>::between(const KeyType &lower_bound,
             }
             if (gt(get_indexed_field(data_page.records[i]), upper_bound)) {
                 close(b_plus_index_file);
-                if (located_records.empty()) {
-                    throw KeyNotFound();
-                }
                 return located_records;
             }
             located_records.push_back(data_page.records[i]);
@@ -422,10 +301,6 @@ auto BPlusTree<INDEX_TYPE>::between(const KeyType &lower_bound,
     } while (seek_page != emptyPage);
 
     close(b_plus_index_file);
-    if (located_records.empty()) {
-        throw KeyNotFound();
-    }
-
     return located_records;
 }
 
@@ -451,7 +326,7 @@ auto BPlusTree<INDEX_TYPE>::remove(const KeyType &key) -> void {
             root = std::make_shared<DataPage<INDEX_TYPE>>(this);
         }
         root->load(seek_root);
-        root->deallocate_root();
+        root->balance_root_remove();
     }
 
     open(metadata_file, metadata_json[METADATA_FULL_PATH].asString(), std::ios::out);
@@ -499,6 +374,6 @@ auto BPlusTree<INDEX_TYPE>::remove(std::streampos seek_page, PageType type,
     }
 
     child->load(child_seek);
-    child->balance(seek_page, index_page, child_pos);
+    child->balance_page_remove(seek_page, index_page, child_pos);
     return RemoveResult<KeyType> { index_page.len(), result.predecessor };
 }

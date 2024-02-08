@@ -30,36 +30,35 @@ struct IndexPage: public Page<INDEX_TYPE> {
 
     ~IndexPage();
 
-    auto write(std::fstream &file)                                           -> void override;
+    auto write(std::fstream &file)                                        -> void override;
+    auto read(std::fstream &file)                                         -> void override;
 
-    auto read(std::fstream &file)                                            -> void override;
+    auto size_of()                                                        -> std::int32_t override;
+    auto len()                                                            -> std::size_t override;
+    auto split(std::int32_t split_position)                               -> SplitResult<INDEX_TYPE> override;
 
-    auto size_of()                                                           -> std::int32_t override;
+    auto balance_page_insert(
+            std::streampos seek_parent,
+            IndexPage<INDEX_TYPE>& parent,
+            std::int32_t child_pos)                                       -> void override;
+    auto balance_page_remove(
+            std::streampos seek_parent,
+            IndexPage<INDEX_TYPE>& parent,
+            std::int32_t child_pos)                                       -> void override;
+    auto balance_root_insert(std::streampos old_root_seek)                -> void override;
+    auto balance_root_remove()                                            -> void override;
 
-    auto len()                                                               -> std::size_t override;
-
-    auto split(std::int32_t split_position)                                  -> SplitResult<INDEX_TYPE> override;
-
-    auto balance(std::streampos seek_parent,
-                 IndexPage<INDEX_TYPE>& parent, std::int32_t child_pos)      -> void override;
-
-    auto deallocate_root()                                                   -> void override;
-
-    auto push_front(KeyType& key, std::streampos child)                      -> void;
-
-    auto push_back(KeyType& key, std::streampos child)                       -> void;
-
-    auto pop_front()                                                         -> std::pair<KeyType, std::streampos>;
-
-    auto pop_back()                                                          -> std::pair<KeyType, std::streampos>;
+    auto push_front(KeyType& key, std::streampos child)                   -> void;
+    auto push_back(KeyType& key, std::streampos child)                    -> void;
+    auto pop_front()                                                      -> std::pair<KeyType, std::streampos>;
+    auto pop_back()                                                       -> std::pair<KeyType, std::streampos>;
 
     auto reallocate_references_after_split(std::int32_t child_pos,
                                             KeyType& new_key,
-                                            std::int64_t new_page_seek)      -> void;
+                                            std::int64_t new_page_seek)   -> void;
+    auto reallocate_references_after_merge(std::int32_t merged_child_pos) -> void;
 
-    auto reallocate_references_after_merge(std::int32_t merged_child_pos)    -> void;
-
-    auto merge(IndexPage<INDEX_TYPE>& right_sibling, KeyType& new_key)       -> void;
+    auto merge(IndexPage<INDEX_TYPE>& right_sibling, KeyType& new_key)    -> void;
 };
 
 

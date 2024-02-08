@@ -23,10 +23,8 @@ void search_test(BPlusTree<std::int32_t, Record> &tree, const int number_of_reco
 
 
 void search_between_test(BPlusTree<std::int32_t, Record> &tree, const int number_of_records) {
-    int const min = (number_of_records * 3) / 7;
-    int const max = number_of_records - min;
-    for (std::int32_t j = min; j <= max; ++j) {
-        for (std::int32_t k = j; k <= max; ++k) {
+    for (std::int32_t j = 1; j <= number_of_records; ++j) {
+        for (std::int32_t k = j; k <= number_of_records; ++k) {
             std::vector<Record> const recovered = tree.between(j, k);
             int const EXPECTED_SIZE = k - j + 1;
             std::size_t const SEARCH_SIZE = recovered.size();

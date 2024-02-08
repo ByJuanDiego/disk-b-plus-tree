@@ -30,41 +30,35 @@ struct DataPage: public Page<INDEX_TYPE> {
 
     ~DataPage() override;
 
-    auto write(std::fstream & file)                            -> void override;
+    auto write(std::fstream & file)                        -> void override;
+    auto read(std::fstream & file)                         -> void override;
 
-    auto read(std::fstream & file)                             -> void override;
+    auto size_of()                                         -> std::int32_t override;
+    auto len()                                             -> std::size_t override;
+    auto split(std::int32_t split_pos)                     -> SplitResult<INDEX_TYPE> override;
 
-    auto size_of()                                             -> std::int32_t override;
+    auto balance_page_insert(
+            std::streampos seek_parent,
+            IndexPage<INDEX_TYPE>& parent,
+            std::int32_t child_pos)                        -> void override;
+    auto balance_page_remove(
+            std::streampos seek_parent,
+            IndexPage<INDEX_TYPE>& parent,
+            std::int32_t child_pos)                        -> void override;
+    auto balance_root_insert(std::streampos old_root_seek) -> void override;
+    auto balance_root_remove()                             -> void override;
 
-    auto len()                                                 -> std::size_t override;
+    auto push_front(RecordType& record)                    -> void;
+    auto push_back(RecordType& record)                     -> void;
 
-    auto split(std::int32_t split_pos)                         -> SplitResult<INDEX_TYPE> override;
+    auto pop_front()                                       -> RecordType;
+    auto pop_back()                                        -> RecordType;
 
-    auto balance(std::streampos seek_parent,
-                 IndexPage<INDEX_TYPE>& parent,
-                 std::int32_t child_pos)                       -> void override;
-
-    auto deallocate_root()                      -> void override;
-
-    auto push_front(RecordType& record)                        -> void;
-
-    auto push_back(RecordType& record)                         -> void;
-
-    auto pop_front()                                           -> RecordType;
-
-    auto pop_back()                                            -> RecordType;
-
-    auto max_record()                                          -> RecordType;
-
-    auto min_record()                                          -> RecordType;
-
-    auto sorted_insert(RecordType& record)                     -> void;
-
-    auto remove(KeyType key)                                   -> std::shared_ptr<KeyType>;
-
-    auto merge(DataPage<INDEX_TYPE>& right_sibling)            -> void;
+    auto max_record()                                       -> RecordType;
+    auto sorted_insert(RecordType& record)                 -> void;
+    auto remove(KeyType key)                               -> std::shared_ptr<KeyType>;
+    auto merge(DataPage<INDEX_TYPE>& right_sibling)        -> void;
 };
-
 
 template <typename RecordType>
 auto get_expected_data_page_capacity() -> std::int32_t;

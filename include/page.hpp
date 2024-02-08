@@ -45,20 +45,28 @@ public:
 
     virtual ~Page() = default;
 
-    auto save(std::streampos pos)                         -> void;
-    auto load(std::streampos pos)                         -> void;
+    auto save(std::streampos pos)                                  -> void;
+    auto load(std::streampos pos)                                  -> void;
 
-    virtual auto write(std::fstream & file)               -> void = 0;
-    virtual auto read(std::fstream & file)                -> void = 0;
+    virtual auto write(std::fstream & file)                        -> void = 0;
+    virtual auto read(std::fstream & file)                         -> void = 0;
 
-    virtual auto size_of()                                -> std::int32_t = 0;
-    virtual auto len()                                    -> std::size_t = 0;
-    virtual auto split(std::int32_t split_pos)            -> SplitResult<INDEX_TYPE> = 0;
-    virtual auto balance(std::streampos seek_parent,
-                         IndexPage<INDEX_TYPE>& parent,
-                         std::int32_t child_pos)          -> void = 0;
+    virtual auto size_of()                                         -> std::int32_t = 0;
+    virtual auto len()                                             -> std::size_t = 0;
+    virtual auto split(std::int32_t split_pos)                     -> SplitResult<INDEX_TYPE> = 0;
 
-    virtual auto deallocate_root()         -> void = 0;
+    virtual auto balance_page_remove(
+            std::streampos seek_parent,
+            IndexPage<INDEX_TYPE>& parent,
+            std::int32_t child_pos)                                -> void = 0;
+
+    virtual auto balance_page_insert(
+            std::streampos seek_parent,
+            IndexPage<INDEX_TYPE>& parent,
+            std::int32_t child_pos)                                -> void = 0;
+
+    virtual auto balance_root_insert(std::streampos old_root_seek) -> void = 0;
+    virtual auto balance_root_remove()                             -> void = 0;
 };
 
 

@@ -96,7 +96,29 @@ auto IndexPage<INDEX_TYPE>::split(std::int32_t split_position) -> SplitResult<IN
 
 
 template<DEFINE_INDEX_TYPE>
-auto IndexPage<INDEX_TYPE>::balance(std::streampos seek_parent, IndexPage<INDEX_TYPE>& parent, std::int32_t child_pos) -> void {
+auto IndexPage<INDEX_TYPE>::balance_page_insert(std::streampos seek_parent,
+                                                IndexPage<KeyType, RecordType, Greater, Index> &parent,
+                                                std::int32_t child_pos) -> void {
+    std::streampos child_seek = parent.children[child_pos];
+
+    SplitResult<INDEX_TYPE> split = this->split(this->tree->metadata_json[INDEX_PAGE_CAPACITY].asInt() / 2);
+    auto new_page = std::dynamic_pointer_cast<IndexPage<INDEX_TYPE>>(split.new_page);
+
+    seek(this->tree->b_plus_index_file, 0, std::ios::end);
+    std::streampos new_page_seek = this->tree->b_plus_index_file.tellp();
+    new_page->write(this->tree->b_plus_index_file);
+
+    this->save(child_seek);
+
+    parent.reallocate_references_after_split(child_pos, split.split_key, new_page_seek);
+
+    // Seek to the location of the parent index page in the index file and update it
+    parent.save(seek_parent);
+}
+
+
+template<DEFINE_INDEX_TYPE>
+auto IndexPage<INDEX_TYPE>::balance_page_remove(std::streampos seek_parent, IndexPage<INDEX_TYPE>& parent, std::int32_t child_pos) -> void {
     std::int32_t minimum = this->tree->metadata_json[MINIMUM_DATA_PAGE_RECORDS].asInt();
     if (len() >= minimum) {
         return;
@@ -164,13 +186,35 @@ auto IndexPage<INDEX_TYPE>::balance(std::streampos seek_parent, IndexPage<INDEX_
 
 
 template<DEFINE_INDEX_TYPE>
-auto IndexPage<INDEX_TYPE>::deallocate_root() -> void {
+auto IndexPage<INDEX_TYPE>::balance_root_insert(std::streampos old_root_seek) -> void {
+    SplitResult<INDEX_TYPE> split = this->split(this->tree->metadata_json[INDEX_PAGE_CAPACITY].asInt() / 2);
+    auto new_page = std::dynamic_pointer_cast<IndexPage<INDEX_TYPE>>(split.new_page);
+    seek(this->tree->b_plus_index_file, 0, std::ios::end);
+    std::streampos new_page_seek = this->tree->b_plus_index_file.tellp();
+    new_page->write(this->tree->b_plus_index_file);
+
+    this->save(old_root_seek);
+
+    IndexPage<INDEX_TYPE> new_root(this->tree, false);
+    new_root.num_keys = 1;
+    new_root.keys[0] = split.split_key;
+    new_root.children[0] = old_root_seek;
+    new_root.children[1] = new_page_seek;
+
+    seek(this->tree->b_plus_index_file, 0, std::ios::end);
+    std::streampos new_root_seek = this->tree->b_plus_index_file.tellp();
+    new_root.write(this->tree->b_plus_index_file);
+
+    this->tree->metadata_json[SEEK_ROOT] = static_cast<Json::Int64>(new_root_seek);
+}
+
+
+template<DEFINE_INDEX_TYPE>
+auto IndexPage<INDEX_TYPE>::balance_root_remove() -> void {
     if (len() == 0) {
-        std::cout << "new root" << std::endl;
         this->tree->metadata_json[SEEK_ROOT] = children[0];
 
         if (points_to_leaf) {
-            std::cout << "now points to leaf" << std::endl;
             this->tree->metadata_json[ROOT_STATUS] = dataPage;
         }
     }
