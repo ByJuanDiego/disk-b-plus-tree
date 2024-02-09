@@ -4,33 +4,38 @@
 
 #include "property.hpp"
 
-
-Property::Property(const std::string &directory_path, const std::string &metadata_file_name,
-                   const std::string &index_file_name, std::int32_t index_page_capacity, std::int32_t data_page_capacity,
-                   bool unique_key) {
-    const std::int32_t empty_page = -1;
-
-    // paths info.
-    json[DIRECTORY_PATH] = directory_path;
-    json[INDEX_FULL_PATH] = directory_path + index_file_name;
-    json[METADATA_FULL_PATH] = directory_path + metadata_file_name;
-
-    // pages size info.
-    json[INDEX_PAGE_CAPACITY] = index_page_capacity;
-    json[MINIMUM_INDEX_PAGE_KEYS] = static_cast<std::int32_t>(std::ceil(index_page_capacity / 2.0)) - 1;
-//    json[NEW_INDEX_PAGE_KEY_POS] = static_cast<std::int32_t>(std::floor(index_page_capacity / 2.0));
-
-    json[DATA_PAGE_CAPACITY] = data_page_capacity;
-    json[MINIMUM_DATA_PAGE_RECORDS] = static_cast<std::int32_t>(std::ceil(data_page_capacity / 2.0)) - 1;
-//    json[NEW_DATA_PAGE_NUM_RECORDS] = static_cast<std::int32_t>(std::floor(data_page_capacity / 2.0));
-
-    // B+ tree info.
-    json[UNIQUE_KEY] = unique_key;
-    json[ROOT_STATUS] = empty_page;
-    json[SEEK_ROOT] = empty_page;
+Property::Property(std::string directory_path,
+                   const std::string &metadata_file_name,
+                   const std::string &index_file_name,
+                   int32_t index_page_capacity,
+                   int32_t data_page_capacity,
+                   bool unique_key)
+        : DIRECTORY_PATH(std::move(directory_path)),
+          INDEX_FILE_NAME(index_file_name + ".tree"),
+          METADATA_FILE_NAME(metadata_file_name + ".meta"),
+          SEEK_ROOT(emptyPage),
+          MAX_INDEX_PAGE_CAPACITY(index_page_capacity),
+          MAX_DATA_PAGE_CAPACITY(data_page_capacity),
+          ROOT_STATUS(emptyPage),
+          UNIQUE_KEY(unique_key) {
+    INDEX_FULL_PATH = DIRECTORY_PATH + INDEX_FILE_NAME;
+    METADATA_FULL_PATH = DIRECTORY_PATH + METADATA_FILE_NAME;
+    MIN_INDEX_PAGE_CAPACITY = static_cast<std::int32_t>(std::ceil(MAX_INDEX_PAGE_CAPACITY / 2.0)) - 1;
+    MIN_DATA_PAGE_CAPACITY = static_cast<std::int32_t>(std::ceil(MAX_DATA_PAGE_CAPACITY / 2.0)) - 1;
 }
 
 
-auto Property::json_value() const -> Json::Value {
-    return json;
+void Property::load(std::fstream &file) {
+    file >> DIRECTORY_PATH >> INDEX_FILE_NAME >> METADATA_FILE_NAME >> SEEK_ROOT
+         >> MAX_INDEX_PAGE_CAPACITY >> MIN_INDEX_PAGE_CAPACITY >> MAX_DATA_PAGE_CAPACITY
+         >> MIN_DATA_PAGE_CAPACITY >> ROOT_STATUS >> UNIQUE_KEY;
+    INDEX_FULL_PATH = DIRECTORY_PATH + INDEX_FILE_NAME;
+    METADATA_FULL_PATH = DIRECTORY_PATH + METADATA_FILE_NAME;
+}
+
+
+void Property::save(std::fstream &file) const {
+    file << DIRECTORY_PATH << "\n" << INDEX_FILE_NAME << "\n" << METADATA_FILE_NAME << "\n" << SEEK_ROOT << "\n"
+         << MAX_INDEX_PAGE_CAPACITY << "\n" << MIN_INDEX_PAGE_CAPACITY << "\n" << MAX_DATA_PAGE_CAPACITY << "\n"
+         << MIN_DATA_PAGE_CAPACITY << "\n" << ROOT_STATUS << "\n" << UNIQUE_KEY;
 }

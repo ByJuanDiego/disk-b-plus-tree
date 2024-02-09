@@ -5,34 +5,50 @@
 #ifndef B_PLUS_TREE_PROPERTY_HPP
 #define B_PLUS_TREE_PROPERTY_HPP
 
-#include <json/json.h>
+
+#include <string>
 #include <cmath>
+#include <fstream>
+#include <cstdint>
 
 
-const std::string DIRECTORY_PATH = "directory_path";
-const std::string INDEX_PAGE_CAPACITY = "maximum_index_page_keys";
-const std::string MINIMUM_INDEX_PAGE_KEYS = "minimum_index_page_keys";
-const std::string DATA_PAGE_CAPACITY = "maximum_data_page_records";
-const std::string MINIMUM_DATA_PAGE_RECORDS = "minimum_data_page_records";
-const std::string INDEX_FULL_PATH = "index_full_path";
-const std::string METADATA_FULL_PATH = "metadata_full_path";
-const std::string UNIQUE_KEY = "unique_key";
-const std::string ROOT_STATUS = "root_status";
-const std::string SEEK_ROOT = "seek_root";
+// Identifiers for pages type
+enum PageType {
+    emptyPage = -1,  // Empty Tree
+    indexPage = 0,   // Index Page
+    dataPage  = 1    // Data Page
+};
+
 
 struct Property {
-private:
-    Json::Value json;
 
-public:
-    explicit Property(const std::string& directory_path,
+    std::string DIRECTORY_PATH;
+    std::string INDEX_FILE_NAME;
+    std::string METADATA_FILE_NAME;
+
+    std::int64_t SEEK_ROOT;
+
+    std::int32_t MAX_INDEX_PAGE_CAPACITY;
+    std::int32_t MIN_INDEX_PAGE_CAPACITY;
+    std::int32_t MAX_DATA_PAGE_CAPACITY;
+    std::int32_t MIN_DATA_PAGE_CAPACITY;
+    std::int32_t ROOT_STATUS;
+
+    bool UNIQUE_KEY;
+
+    std::string INDEX_FULL_PATH;
+    std::string METADATA_FULL_PATH;
+
+    explicit Property(std::string directory_path,
                       const std::string& metadata_file_name,
                       const std::string& index_file_name,
-                      std::int32_t index_page_capacity,
-                      std::int32_t data_page_capacity,
+                      int32_t index_page_capacity,
+                      int32_t data_page_capacity,
                       bool unique_key);
 
-    [[nodiscard]] auto json_value() const -> Json::Value;
+    void load(std::fstream &file);
+
+    void save(std::fstream &file) const;
 };
 
 #endif //B_PLUS_TREE_PROPERTY_HPP

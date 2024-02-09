@@ -27,19 +27,14 @@ template <
 
 private:
 
-    std::fstream metadata_file;
     std::fstream b_plus_index_file;
+    std::fstream metadata_file;
 
-    Json::Value metadata_json;
-
+    Property properties;
     Greater gt;
     Index get_indexed_field;
 
     auto create_index() -> void;
-
-    auto load_metadata() -> void;
-
-    auto save_metadata() -> void;
 
     auto locate_data_page(const KeyType &key) -> std::streampos;
 
@@ -49,7 +44,7 @@ private:
 
 public:
 
-    explicit BPlusTree(const Property &property, Index index, Greater greater = Greater());
+    explicit BPlusTree(Property property, Index index, Greater greater = Greater());
 
     auto insert(RecordType &record) -> void;
 

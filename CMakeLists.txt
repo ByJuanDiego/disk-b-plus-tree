@@ -48,19 +48,6 @@ foreach(target ${PROJECT_NAME} between_by_id insert_by_id test_search_by_id test
     target_compile_features(${target} PRIVATE cxx_std_20)
 endforeach()
 
-# Find JSONCPP
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(JSONCPP QUIET jsoncpp)
-
-if(JSONCPP_FOUND)
-    # Link JSONCPP libraries
-    foreach(target ${PROJECT_NAME} between_by_id insert_by_id test_search_by_id test_insert_by_id test_remove_by_id)
-        target_link_libraries(${target} PRIVATE ${JSONCPP_LIBRARIES})
-    endforeach()
-else()
-    message(FATAL_ERROR "JSONCPP not found.")
-endif()
-
 # Add source files to targets
 foreach(target ${PROJECT_NAME} between_by_id insert_by_id test_search_by_id test_insert_by_id test_remove_by_id)
     target_sources(${target} PRIVATE ${SRC_FILES})

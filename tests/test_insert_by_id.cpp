@@ -53,8 +53,8 @@ auto main(int argc, char* argv[]) -> int {
     };
 
     for (int TEST = 1; TEST <= NUMBER_OF_TESTS; ++TEST) {
-        std::string const metadata_file_name = "metadata_index_by_id_" + std::to_string(TEST) + ".json";
-        std::string const index_file_name = "index_by_id_" + std::to_string(TEST) + ".dat";
+        std::string const metadata_file_name = "metadata_index_by_id_" + std::to_string(TEST);
+        std::string const index_file_name = "index_by_id_" + std::to_string(TEST);
 
         Property const property(
                 path,

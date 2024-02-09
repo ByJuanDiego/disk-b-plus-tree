@@ -22,8 +22,8 @@ auto main() -> int {
     int choice;
 
     const std::string& directory_path = "./index/test_by_id/";
-    const std::string& metadata_file_name = "metadata.json";
-    const std::string& index_file_name = "btree.dat";
+    const std::string& metadata_file_name = "metadata";
+    const std::string& index_file_name = "btree";
 
     const int index_page_capacity = 4;
     const int data_page_capacity = 4;
