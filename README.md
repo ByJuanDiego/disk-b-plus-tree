@@ -19,17 +19,17 @@ descend criteria when performing the index operations.
 
 The structure of the _internal nodes_ of a B+ tree with _index page capacity_ $M$ is as follows:
  
- - Each _internal node_ is of the form $\left[P_1, K_1, P_2, K_2, ..., P_{q-1}, K_{q-1}, P_q \right]$, where $q \leq M$. Each $K_i$ refers to a _key_ (for $1 \leq i \lt q$) and each $P_i$ refers to a _pointer to child node_ (for $1 \leq i \leq q$), the pointer may point either to a _internal node_ or to a _leaf node_. Note that an _internal node_ with $q$ _pointers_ has $q - 1$ _keys_.
+ - Each _internal node_ is of the form $\left[P_1, K_1, P_2, K_2, ..., P_{q-1}, K_{q-1}, P_q \right]$, where $q \leq M$. Each $K_i$ refers to a _search field_ (for $1 \leq i \lt q$) and each $P_i$ refers to a _tree pointer_ (for $1 \leq i \leq q$), the pointer may point either to a _internal node_ or to a _leaf node_. Note that an _internal node_ with $q$ _pointers_ has $(q - 1)$ _search field values_.
 
  - Within each internal node we have that $K_{1} < K_{2} < ... < K_{q-1}$.
 
- - For all _key values_ $X$ in the subtree pointed by $P_{i}$, we have that:
+ - For all _search field values_ $X$ in the subtree pointed by $P_{i}$, we have that:
    - $K_{i-1} \lt X \lt K_{i}$ for $1 \lt i \lt q$
    - $X \lt K_{i}$ for $i = 1$
    - $K_{i-1} \lt X$ for $i = q$
 
  
- - Each internal node has at least $\lceil \frac{M}{2} \rceil$ _children_ and at most $M$ _children_. The _root node_ has at least two _children_ if it is an _internal node_.
+ - Each internal node has at least $\lceil \frac{M}{2} \rceil$ _pointers_ and at most $M$ _pointers_. The _root node_ has at least two _pointers_ if it is an _internal node_.
 
 The structure of the _leaf nodes_ of a B+ tree with _data page capacity_ $N$ is as follows:
 
