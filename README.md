@@ -43,4 +43,4 @@ The structure of the _leaf nodes_ of a B+ tree with _data page capacity_ $N$ is 
 
 ## References
 
-- [1] Elmasri, R. & Navathe, S. (2010). Indexing Structures for Files. In _Fundamentals of Database Systems_ (pp. 643-646). Addison–Wesley.
+- [1] Elmasri, R. & Navathe, S. (2010). Indexing Structures for Files. In _Fundamentals of Database Systems_ (pp. 652-653). Addison–Wesley.
