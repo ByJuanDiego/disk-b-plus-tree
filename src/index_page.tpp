@@ -85,14 +85,14 @@ auto IndexPage<INDEX_TYPE>::read() -> void {
 
 
 template <DEFINE_INDEX_TYPE>
-auto IndexPage<INDEX_TYPE>::split(std::int32_t split_position) -> SplitResult<INDEX_TYPE> {
+auto IndexPage<INDEX_TYPE>::split(std::int32_t split_pos) -> SplitResult<INDEX_TYPE> {
     auto new_index_page = std::make_shared<IndexPage<INDEX_TYPE>>(this->tree, points_to_leaf);
-    KeyType new_key = keys[split_position];
+    KeyType new_key = keys[split_pos];
 
-    for (int i = split_position + 1; i < num_keys; ++i) {
+    for (int i = split_pos + 1; i < num_keys; ++i) {
         new_index_page->push_back(keys[i], children[i + 1]);
     }
-    new_index_page->children[0] = children[split_position + 1];
+    new_index_page->children[0] = children[split_pos + 1];
 
     num_keys -= (new_index_page->num_keys + 1);
     return SplitResult<INDEX_TYPE> { new_index_page, new_key };
@@ -105,7 +105,7 @@ auto IndexPage<INDEX_TYPE>::balance_page_insert(std::streampos seek_parent,
                                                 std::int32_t child_pos) -> void {
     std::streampos child_seek = parent.children[child_pos];
 
-    SplitResult<INDEX_TYPE> split = this->split(this->tree->properties.MAX_INDEX_PAGE_CAPACITY / 2);
+    SplitResult<INDEX_TYPE> split = this->split(this->tree->properties.SPLIT_POS_INDEX_PAGE);
     auto new_page = std::dynamic_pointer_cast<IndexPage<INDEX_TYPE>>(split.new_page);
 
     seek(this->tree->b_plus_index_file, 0, std::ios::end);
@@ -189,7 +189,7 @@ auto IndexPage<INDEX_TYPE>::balance_page_remove(std::streampos seek_parent, Inde
 
 template<DEFINE_INDEX_TYPE>
 auto IndexPage<INDEX_TYPE>::balance_root_insert(std::streampos old_root_seek) -> void {
-    SplitResult<INDEX_TYPE> split = this->split(this->tree->properties.MAX_INDEX_PAGE_CAPACITY / 2);
+    SplitResult<INDEX_TYPE> split = this->split(this->tree->properties.SPLIT_POS_INDEX_PAGE);
     auto new_page = std::dynamic_pointer_cast<IndexPage<INDEX_TYPE>>(split.new_page);
     seek(this->tree->b_plus_index_file, 0, std::ios::end);
     std::streampos new_page_seek = this->tree->b_plus_index_file.tellp();

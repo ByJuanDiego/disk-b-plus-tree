@@ -40,7 +40,7 @@ struct IndexPage : public Page<INDEX_TYPE> {
 
     auto max_capacity() -> std::size_t override;
 
-    auto split(std::int32_t split_position) -> SplitResult<INDEX_TYPE> override;
+    auto split(std::int32_t split_pos) -> SplitResult<INDEX_TYPE> override;
 
     auto balance_page_insert(
             std::streampos seek_parent,

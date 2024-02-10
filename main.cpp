@@ -21,24 +21,16 @@ void displayMenu() {
 auto main() -> int {
     int choice;
 
-    const std::string& directory_path = "./index/test_by_id/";
-    const std::string& metadata_file_name = "metadata";
-    const std::string& index_file_name = "btree";
-
-    const int index_page_capacity = 4;
-    const int data_page_capacity = 4;
-    const bool unique_key = true;
-
     const Property props(
-            directory_path,
-            metadata_file_name,
-            index_file_name,
-            index_page_capacity,
-            data_page_capacity,
-            unique_key
+            "./index/record/",
+            "metadata_index_by_id_1",
+            "index_by_id_1",
+            get_expected_index_page_capacity<std::int32_t>(),
+            get_expected_data_page_capacity<Record>(),
+            true
     );
 
-    const std::function<std::int32_t(Record&)> index_by_id = [](Record& record) -> std::int32_t {
+    const std::function<std::int32_t(Record &)> index_by_id = [](Record &record) -> std::int32_t {
         return record.id;
     };
 
@@ -62,7 +54,7 @@ auto main() -> int {
                 std::cout << "Enter key to search: ";
                 std::cin >> key;
                 std::vector<Record> recovered = bPlusTree.search(key);
-                for (Record& record: recovered) {
+                for (Record &record: recovered) {
                     std::cout << record << "\n";
                 }
                 break;
@@ -75,7 +67,7 @@ auto main() -> int {
                 std::cin >> u;
                 std::vector<Record> recovered = bPlusTree.between(l, u);
                 std::cout << "Recovered records:\n";
-                for (Record& record: recovered) {
+                for (Record &record: recovered) {
                     std::cout << record << "\n";
                 }
                 break;
@@ -85,7 +77,7 @@ auto main() -> int {
                 std::cout << "Enter lower bound: ";
                 std::cin >> key;
                 std::vector<Record> recovered = bPlusTree.above(key);
-                for (Record& record: recovered) {
+                for (Record &record: recovered) {
                     std::cout << record << "\n";
                 }
                 break;
@@ -95,7 +87,7 @@ auto main() -> int {
                 std::cout << "Enter upper bound: ";
                 std::cin >> key;
                 std::vector<Record> recovered = bPlusTree.below(key);
-                for (Record& record: recovered) {
+                for (Record &record: recovered) {
                     std::cout << record << "\n";
                 }
                 break;

@@ -32,6 +32,8 @@ struct Property {
     std::int32_t MIN_INDEX_PAGE_CAPACITY;
     std::int32_t MAX_DATA_PAGE_CAPACITY;
     std::int32_t MIN_DATA_PAGE_CAPACITY;
+    std::int32_t SPLIT_POS_INDEX_PAGE;
+    std::int32_t SPLIT_POS_DATA_PAGE;
     std::int32_t ROOT_STATUS;
 
     bool UNIQUE_KEY;

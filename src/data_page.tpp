@@ -101,7 +101,7 @@ auto DataPage<INDEX_TYPE>::balance_page_insert(std::streampos seek_parent,
                                                std::int32_t child_pos) -> void {
     std::streampos child_seek = parent.children[child_pos];
     // Create a new data page to accommodate the split
-    SplitResult<INDEX_TYPE> split = this->split(this->tree->properties.MAX_DATA_PAGE_CAPACITY / 2);
+    SplitResult<INDEX_TYPE> split = this->split(this->tree->properties.SPLIT_POS_DATA_PAGE);
     auto new_page = std::dynamic_pointer_cast<DataPage<INDEX_TYPE>>(split.new_page);
 
     // Seek to the end of the B+Tree index file to append the new page
@@ -226,7 +226,7 @@ auto DataPage<INDEX_TYPE>::balance_page_remove(std::streampos seek_parent, Index
 
 template<typename KeyType, typename RecordType, typename Greater, typename Index>
 auto DataPage<KeyType, RecordType, Greater, Index>::balance_root_insert(std::streampos old_root_seek) -> void {
-    SplitResult<INDEX_TYPE> split = this->split(this->tree->properties.MAX_DATA_PAGE_CAPACITY / 2);
+    SplitResult<INDEX_TYPE> split = this->split(this->tree->properties.SPLIT_POS_DATA_PAGE);
     auto new_page = std::dynamic_pointer_cast<DataPage<INDEX_TYPE>>(split.new_page);
 
     new_page->prev_leaf = old_root_seek;
