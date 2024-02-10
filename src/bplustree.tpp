@@ -6,8 +6,8 @@
 #include "bplustree.hpp"
 
 
-template<DEFINE_INDEX_TYPE>
-auto BPlusTree<INDEX_TYPE>::create_index() -> void {
+template<TYPES(typename)>
+auto BPlusTree<TYPES()>::create_index() -> void {
     // first verifies if the directory path exists and creates it if not exists.
     if (!directory_exists(properties.DIRECTORY_PATH)) {
         bool successfully_created = create_directory(properties.DIRECTORY_PATH);
@@ -35,8 +35,8 @@ auto BPlusTree<INDEX_TYPE>::create_index() -> void {
 }
 
 
-template<DEFINE_INDEX_TYPE>
-auto BPlusTree<INDEX_TYPE>::locate_data_page(const KeyType &key) -> std::streampos {
+template<TYPES(typename)>
+auto BPlusTree<TYPES()>::locate_data_page(const FieldType &key) -> std::streampos {
     switch (properties.ROOT_STATUS) {
         case emptyPage: {
             return emptyPage;
@@ -48,7 +48,7 @@ auto BPlusTree<INDEX_TYPE>::locate_data_page(const KeyType &key) -> std::streamp
             // iterates through the index pages and descends the B+ in order to locate the first data page
             // that may contain the key to search.
             std::streampos seek_page = properties.SEEK_ROOT;
-            IndexPage<INDEX_TYPE> index_page(this);
+            IndexPage<TYPES()> index_page(this);
 
             do {
                 index_page.load(seek_page);
@@ -66,12 +66,12 @@ auto BPlusTree<INDEX_TYPE>::locate_data_page(const KeyType &key) -> std::streamp
 }
 
 
-template<DEFINE_INDEX_TYPE>
-auto BPlusTree<INDEX_TYPE>::insert(std::streampos seek_page, PageType type,
+template<TYPES(typename)>
+auto BPlusTree<TYPES()>::insert(std::streampos seek_page, PageType type,
                                                             RecordType &record) -> InsertResult {
     // When a data page is found, proceeds to insert the record in-order and then resend the page to disk
     if (type == dataPage) {
-        DataPage<INDEX_TYPE> data_page(this);
+        DataPage<TYPES()> data_page(this);
         data_page.load(seek_page);
         data_page.sorted_insert(record);
         data_page.save(seek_page);
@@ -80,11 +80,11 @@ auto BPlusTree<INDEX_TYPE>::insert(std::streampos seek_page, PageType type,
 
     // Otherwise, the index page is iterated to locate the right child to descend the tree.
     // This procedure is often done recursively since the height of the tree increases when inserting records.
-    IndexPage<INDEX_TYPE> index_page(this);
+    IndexPage<TYPES()> index_page(this);
     index_page.load(seek_page);
 
     std::int32_t child_pos = 0;
-    while (child_pos < index_page.len() && gt(get_indexed_field(record), index_page.keys[child_pos])) {
+    while (child_pos < index_page.len() && gt(get_search_field(record), index_page.keys[child_pos])) {
         ++child_pos;
     }
 
@@ -93,11 +93,11 @@ auto BPlusTree<INDEX_TYPE>::insert(std::streampos seek_page, PageType type,
     InsertResult prev_page_status = this->insert(child_seek, children_type, record);
 
     // Conditionally splits a page if it's full
-    std::shared_ptr<Page<INDEX_TYPE>> child = nullptr;
+    std::shared_ptr<Page<TYPES()>> child = nullptr;
     if (children_type == dataPage && (prev_page_status.size == properties.MAX_DATA_PAGE_CAPACITY)) {
-        child = std::make_shared<DataPage<INDEX_TYPE>>(this);
+        child = std::make_shared<DataPage<TYPES()>>(this);
     } else if (children_type == indexPage && (prev_page_status.size == properties.MAX_INDEX_PAGE_CAPACITY)) {
-        child = std::make_shared<IndexPage<INDEX_TYPE>>(this);
+        child = std::make_shared<IndexPage<TYPES()>>(this);
     }
 
     if (child) {
@@ -110,9 +110,9 @@ auto BPlusTree<INDEX_TYPE>::insert(std::streampos seek_page, PageType type,
 }
 
 
-template<DEFINE_INDEX_TYPE>
-BPlusTree<INDEX_TYPE>::BPlusTree(Property property, Index index, Greater greater)
-        : gt(greater), get_indexed_field(index), properties(std::move(property)) {
+template<TYPES(typename)>
+BPlusTree<TYPES()>::BPlusTree(Property property, FieldMapping search_field, Compare greater)
+        : gt(greater), get_search_field(search_field), properties(std::move(property)) {
     open(metadata_file, properties.METADATA_FULL_PATH, std::ios::in);
 
     // if the metadata file cannot be opened, creates the index
@@ -127,13 +127,13 @@ BPlusTree<INDEX_TYPE>::BPlusTree(Property property, Index index, Greater greater
 }
 
 
-template<DEFINE_INDEX_TYPE>
-auto BPlusTree<INDEX_TYPE>::insert(RecordType &record) -> void {
+template<TYPES(typename)>
+auto BPlusTree<TYPES()>::insert(RecordType &record) -> void {
     open(b_plus_index_file, properties.INDEX_FULL_PATH, std::ios::in | std::ios::out);
     auto root_page_type = static_cast<PageType>(properties.ROOT_STATUS);
 
     if (root_page_type == emptyPage) {
-        DataPage<INDEX_TYPE> data_page(this);
+        DataPage<TYPES()> data_page(this);
         data_page.push_back(record);
         data_page.save(std::ios::beg);
 
@@ -146,12 +146,12 @@ auto BPlusTree<INDEX_TYPE>::insert(RecordType &record) -> void {
 
         // At the end of the recursive calls generated above, we must check (as a base case) if the root page is full
         // and needs to be split.
-        std::shared_ptr<Page<INDEX_TYPE>> root = nullptr;
+        std::shared_ptr<Page<TYPES()>> root = nullptr;
         if (root_page_type == dataPage && (result.size == properties.MAX_DATA_PAGE_CAPACITY)) {
-            root = std::make_shared<DataPage<INDEX_TYPE>>(this);
+            root = std::make_shared<DataPage<TYPES()>>(this);
         }
         else if (root_page_type == indexPage && (result.size == properties.MAX_INDEX_PAGE_CAPACITY)) {
-            root = std::make_shared<IndexPage<INDEX_TYPE>>(this);
+            root = std::make_shared<IndexPage<TYPES()>>(this);
         }
 
         if (root) {
@@ -168,8 +168,8 @@ auto BPlusTree<INDEX_TYPE>::insert(RecordType &record) -> void {
 }
 
 
-template<DEFINE_INDEX_TYPE>
-auto BPlusTree<INDEX_TYPE>::search(const KeyType &key) -> std::vector<RecordType> {
+template<TYPES(typename)>
+auto BPlusTree<TYPES()>::search(const FieldType &key) -> std::vector<RecordType> {
     open(b_plus_index_file, properties.INDEX_FULL_PATH, std::ios::in);
     std::streampos seek_page = locate_data_page(key);
     if (seek_page == emptyPage) {
@@ -177,16 +177,16 @@ auto BPlusTree<INDEX_TYPE>::search(const KeyType &key) -> std::vector<RecordType
     }
 
     std::vector<RecordType> located_records;
-    DataPage<INDEX_TYPE> data_page(this);
+    DataPage<TYPES()> data_page(this);
 
     do {
         data_page.load(seek_page);
 
         for (int i = 0; i < data_page.len(); ++i) {
-            if (gt(key, get_indexed_field(data_page.records[i]))) {
+            if (gt(key, get_search_field(data_page.records[i]))) {
                 continue;
             }
-            if (gt(get_indexed_field(data_page.records[i]), key)) {
+            if (gt(get_search_field(data_page.records[i]), key)) {
                 close(b_plus_index_file);
                 return located_records;
             }
@@ -200,8 +200,8 @@ auto BPlusTree<INDEX_TYPE>::search(const KeyType &key) -> std::vector<RecordType
 }
 
 
-template<DEFINE_INDEX_TYPE>
-auto BPlusTree<INDEX_TYPE>::above(const KeyType &lower_bound) -> std::vector<RecordType> {
+template<TYPES(typename)>
+auto BPlusTree<TYPES()>::above(const FieldType &lower_bound) -> std::vector<RecordType> {
     open(b_plus_index_file, properties.INDEX_FULL_PATH, std::ios::in);
     std::streampos seek_page = locate_data_page(lower_bound);
     if (seek_page == emptyPage) {
@@ -209,13 +209,13 @@ auto BPlusTree<INDEX_TYPE>::above(const KeyType &lower_bound) -> std::vector<Rec
     }
 
     std::vector<RecordType> located_records;
-    DataPage<INDEX_TYPE> data_page(this);
+    DataPage<TYPES()> data_page(this);
 
     do {
         data_page.load(seek_page);
 
         for (std::int32_t i = 0; i < data_page.len(); ++i) {
-            if (gt(lower_bound, get_indexed_field(data_page.records[i]))) {
+            if (gt(lower_bound, get_search_field(data_page.records[i]))) {
                 continue;
             }
             located_records.push_back(data_page.records[i]);
@@ -229,8 +229,8 @@ auto BPlusTree<INDEX_TYPE>::above(const KeyType &lower_bound) -> std::vector<Rec
 }
 
 
-template<DEFINE_INDEX_TYPE>
-auto BPlusTree<INDEX_TYPE>::below(const KeyType &upper_bound) -> std::vector<RecordType> {
+template<TYPES(typename)>
+auto BPlusTree<TYPES()>::below(const FieldType &upper_bound) -> std::vector<RecordType> {
     open(b_plus_index_file, properties.INDEX_FULL_PATH, std::ios::in);
     std::streampos seek_page = locate_data_page(upper_bound);
     if (seek_page == emptyPage) {
@@ -238,13 +238,13 @@ auto BPlusTree<INDEX_TYPE>::below(const KeyType &upper_bound) -> std::vector<Rec
     }
 
     std::vector<RecordType> located_records;
-    DataPage<INDEX_TYPE> data_page(this);
+    DataPage<TYPES()> data_page(this);
 
     do {
         data_page.load(seek_page);
 
         for (std::int32_t i = data_page.len() - 1; i >= 0; --i) {
-            if (gt(get_indexed_field(data_page.records[i]), upper_bound)) {
+            if (gt(get_search_field(data_page.records[i]), upper_bound)) {
                 continue;
             }
             located_records.push_back(data_page.records[i]);
@@ -258,9 +258,9 @@ auto BPlusTree<INDEX_TYPE>::below(const KeyType &upper_bound) -> std::vector<Rec
 }
 
 
-template<DEFINE_INDEX_TYPE>
-auto BPlusTree<INDEX_TYPE>::between(const KeyType &lower_bound,
-                                    const KeyType &upper_bound) -> std::vector<RecordType> {
+template<TYPES(typename)>
+auto BPlusTree<TYPES()>::between(const FieldType &lower_bound,
+                                    const FieldType &upper_bound) -> std::vector<RecordType> {
     open(b_plus_index_file, properties.INDEX_FULL_PATH, std::ios::in);
     std::streampos seek_page = locate_data_page(lower_bound);
     if (seek_page == emptyPage) {
@@ -268,16 +268,16 @@ auto BPlusTree<INDEX_TYPE>::between(const KeyType &lower_bound,
     }
 
     std::vector<RecordType> located_records;
-    DataPage<INDEX_TYPE> data_page(this);
+    DataPage<TYPES()> data_page(this);
 
     do {
         data_page.load(seek_page);
 
         for (std::int32_t i = 0; i < data_page.len(); ++i) {
-            if (gt(lower_bound,  get_indexed_field(data_page.records[i]))) {
+            if (gt(lower_bound,  get_search_field(data_page.records[i]))) {
                 continue;
             }
-            if (gt(get_indexed_field(data_page.records[i]), upper_bound)) {
+            if (gt(get_search_field(data_page.records[i]), upper_bound)) {
                 close(b_plus_index_file);
                 return located_records;
             }
@@ -291,8 +291,8 @@ auto BPlusTree<INDEX_TYPE>::between(const KeyType &lower_bound,
 }
 
 
-template<DEFINE_INDEX_TYPE>
-auto BPlusTree<INDEX_TYPE>::remove(const KeyType &key) -> void {
+template<TYPES(typename)>
+auto BPlusTree<TYPES()>::remove(const FieldType &key) -> void {
     open(b_plus_index_file, properties.INDEX_FULL_PATH, std::ios::in | std::ios::out);
     auto root_page_type = static_cast<PageType>(properties.ROOT_STATUS);
 
@@ -302,14 +302,14 @@ auto BPlusTree<INDEX_TYPE>::remove(const KeyType &key) -> void {
     }
 
     std::streampos seek_root = properties.SEEK_ROOT;
-    RemoveResult<KeyType> result = this->remove(seek_root, root_page_type, key);
+    RemoveResult<FieldType> result = this->remove(seek_root, root_page_type, key);
 
     if (result.size == 0) {
-        std::shared_ptr<Page<INDEX_TYPE>> root;
+        std::shared_ptr<Page<TYPES()>> root;
         if (root_page_type == indexPage) {
-            root = std::make_shared<IndexPage<INDEX_TYPE>>(this);
+            root = std::make_shared<IndexPage<TYPES()>>(this);
         } else {
-            root = std::make_shared<DataPage<INDEX_TYPE>>(this);
+            root = std::make_shared<DataPage<TYPES()>>(this);
         }
         root->load(seek_root);
         root->balance_root_remove();
@@ -323,18 +323,18 @@ auto BPlusTree<INDEX_TYPE>::remove(const KeyType &key) -> void {
 }
 
 
-template<DEFINE_INDEX_TYPE>
-auto BPlusTree<INDEX_TYPE>::remove(std::streampos seek_page, PageType type,
-                                                            const KeyType& key) -> RemoveResult<KeyType> {
+template<TYPES(typename)>
+auto BPlusTree<TYPES()>::remove(std::streampos seek_page, PageType type,
+                                                            const FieldType& key) -> RemoveResult<FieldType> {
     if (type == dataPage) {
-        DataPage<INDEX_TYPE> data_page(this);
+        DataPage<TYPES()> data_page(this);
         data_page.load(seek_page);
-        std::shared_ptr<KeyType> predecessor = data_page.remove(key);
+        std::shared_ptr<FieldType> predecessor = data_page.remove(key);
         data_page.save(seek_page);
-        return RemoveResult<KeyType> { data_page.len(), predecessor };
+        return RemoveResult<FieldType> { data_page.len(), predecessor };
     }
 
-    IndexPage<INDEX_TYPE> index_page(this);
+    IndexPage<TYPES()> index_page(this);
     index_page.load(seek_page);
 
     std::int32_t child_pos = 0;
@@ -344,7 +344,7 @@ auto BPlusTree<INDEX_TYPE>::remove(std::streampos seek_page, PageType type,
 
     auto children_type = static_cast<PageType>(index_page.points_to_leaf);
     std::streampos child_seek = index_page.children[child_pos];
-    RemoveResult<KeyType> result = this->remove(child_seek, children_type, key);
+    RemoveResult<FieldType> result = this->remove(child_seek, children_type, key);
 
     if (child_pos < index_page.len() && result.predecessor && !gt(index_page.keys[child_pos], key)) {
         index_page.keys[child_pos] = *result.predecessor;
@@ -352,14 +352,14 @@ auto BPlusTree<INDEX_TYPE>::remove(std::streampos seek_page, PageType type,
         result.predecessor = nullptr;
     }
 
-    std::shared_ptr<Page<INDEX_TYPE>> child;
+    std::shared_ptr<Page<TYPES()>> child;
     if (children_type == dataPage) {
-        child = std::make_shared<DataPage<INDEX_TYPE>>(this);
+        child = std::make_shared<DataPage<TYPES()>>(this);
     } else {
-        child = std::make_shared<IndexPage<INDEX_TYPE>>(this);
+        child = std::make_shared<IndexPage<TYPES()>>(this);
     }
 
     child->load(child_seek);
     child->balance_page_remove(seek_page, index_page, child_pos);
-    return RemoveResult<KeyType> { index_page.len(), result.predecessor };
+    return RemoveResult<FieldType> { index_page.len(), result.predecessor };
 }

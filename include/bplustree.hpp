@@ -15,15 +15,15 @@
 
 
 template <
-    typename KeyType,
+    typename FieldType,
     typename RecordType,
-    typename Greater = std::greater<KeyType>,
-    typename Index = std::function<KeyType(RecordType&)>
+    typename Compare = std::greater<FieldType>,
+    typename FieldMapping = std::function<FieldType(RecordType&)>
 > class BPlusTree {
 
-    friend struct Page<INDEX_TYPE>;
-    friend struct DataPage<INDEX_TYPE>;
-    friend struct IndexPage<INDEX_TYPE>;
+    friend struct Page<TYPES()>;
+    friend struct DataPage<TYPES()>;
+    friend struct IndexPage<TYPES()>;
 
 private:
 
@@ -31,32 +31,32 @@ private:
     std::fstream metadata_file;
 
     Property properties;
-    Greater gt;
-    Index get_indexed_field;
+    Compare gt;
+    FieldMapping get_search_field;
 
     auto create_index() -> void;
 
-    auto locate_data_page(const KeyType &key) -> std::streampos;
+    auto locate_data_page(const FieldType &key) -> std::streampos;
 
     auto insert(std::streampos seek_page, PageType type, RecordType &record) -> InsertResult;
 
-    auto remove(std::streampos seek_page, PageType type, const KeyType &key) -> RemoveResult<KeyType>;
+    auto remove(std::streampos seek_page, PageType type, const FieldType &key) -> RemoveResult<FieldType>;
 
 public:
 
-    explicit BPlusTree(Property property, Index index, Greater greater = Greater());
+    explicit BPlusTree(Property property, FieldMapping search_field, Compare greater = Compare());
 
     auto insert(RecordType &record) -> void;
 
-    auto remove(const KeyType &key) -> void;
+    auto remove(const FieldType &key) -> void;
 
-    auto search(const KeyType &key) -> std::vector<RecordType>;
+    auto search(const FieldType &key) -> std::vector<RecordType>;
 
-    auto above(const KeyType &lower_bound) -> std::vector<RecordType>;
+    auto above(const FieldType &lower_bound) -> std::vector<RecordType>;
 
-    auto below(const KeyType &upper_bound) -> std::vector<RecordType>;
+    auto below(const FieldType &upper_bound) -> std::vector<RecordType>;
 
-    auto between(const KeyType &lower_bound, const KeyType &upper_bound) -> std::vector<RecordType>;
+    auto between(const FieldType &lower_bound, const FieldType &upper_bound) -> std::vector<RecordType>;
 };
 
 

@@ -41,6 +41,8 @@ The structure of the _leaf nodes_ of a B+ tree with _data page capacity_ $N$ is 
    
  - All _leaf nodes_ are at the same level.
 
+Note that the order (capacity) of internal and leaf nodes are different because they differ in information as in structure.
+
 ## References
 
 - [1] Elmasri, R. & Navathe, S. (2010). Indexing Structures for Files. In _Fundamentals of Database Systems_ (pp. 652-653). Addison–Wesley.

@@ -5,29 +5,29 @@
 #include "page.hpp"
 
 
-template<DEFINE_INDEX_TYPE>
-Page<INDEX_TYPE>::Page(BPlusTree<INDEX_TYPE> *tree): tree(tree) {
+template<TYPES(typename)>
+Page<TYPES()>::Page(BPlusTree<TYPES()> *tree): tree(tree) {
 }
 
 
-template<DEFINE_INDEX_TYPE>
-Page<INDEX_TYPE>::~Page() = default;
+template<TYPES(typename)>
+Page<TYPES()>::~Page() = default;
 
 
-template<DEFINE_INDEX_TYPE>
-auto Page<INDEX_TYPE>::is_full() -> bool {
+template<TYPES(typename)>
+auto Page<TYPES()>::is_full() -> bool {
     return len() == max_capacity();
 }
 
 
-template<DEFINE_INDEX_TYPE>
-auto Page<INDEX_TYPE>::is_empty() -> bool {
+template<TYPES(typename)>
+auto Page<TYPES()>::is_empty() -> bool {
     return len() == 0;
 }
 
 
-template<DEFINE_INDEX_TYPE>
-auto Page<INDEX_TYPE>::save(std::streampos pos) -> void {
+template<TYPES(typename)>
+auto Page<TYPES()>::save(std::streampos pos) -> void {
     seek(this->tree->b_plus_index_file, pos);
     write();
 }

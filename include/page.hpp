@@ -13,27 +13,25 @@
 #include "file_utils.hpp"
 
 
-#define DEFINE_INDEX_TYPE typename KeyType, typename RecordType, typename Greater, typename Index
-#define INDEX_TYPE KeyType, RecordType, Greater, Index
+#define TYPES(T) T FieldType, T RecordType, T Compare, T FieldMapping
 
-
-template<DEFINE_INDEX_TYPE>
+template<TYPES(typename)>
 struct SplitResult;
 
-template<DEFINE_INDEX_TYPE>
+template<TYPES(typename)>
 class BPlusTree;
 
-template<DEFINE_INDEX_TYPE>
+template<TYPES(typename)>
 struct IndexPage;
 
 
-template<DEFINE_INDEX_TYPE>
+template<TYPES(typename)>
 struct Page {
 protected:
-    BPlusTree<INDEX_TYPE> *tree;
+    BPlusTree<TYPES()> *tree;
 public:
 
-    explicit Page(BPlusTree<INDEX_TYPE> *tree);
+    explicit Page(BPlusTree<TYPES()> *tree);
 
     virtual ~Page();
 
@@ -55,16 +53,16 @@ public:
 
     virtual auto max_capacity() -> std::size_t = 0;
 
-    virtual auto split(std::int32_t split_pos) -> SplitResult<INDEX_TYPE> = 0;
+    virtual auto split(std::int32_t split_pos) -> SplitResult<TYPES()> = 0;
 
     virtual auto balance_page_remove(
             std::streampos seek_parent,
-            IndexPage<INDEX_TYPE> &parent,
+            IndexPage<TYPES()> &parent,
             std::int32_t child_pos) -> void = 0;
 
     virtual auto balance_page_insert(
             std::streampos seek_parent,
-            IndexPage<INDEX_TYPE> &parent,
+            IndexPage<TYPES()> &parent,
             std::int32_t child_pos) -> void = 0;
 
     virtual auto balance_root_insert(std::streampos old_root_seek) -> void = 0;
@@ -73,10 +71,10 @@ public:
 };
 
 
-template<DEFINE_INDEX_TYPE>
+template<TYPES(typename)>
 struct SplitResult {
-    std::shared_ptr<Page<INDEX_TYPE>> new_page;
-    KeyType split_key;
+    std::shared_ptr<Page<TYPES()>> new_page;
+    FieldType split_key;
 };
 
 
@@ -86,10 +84,10 @@ struct InsertResult {
 };
 
 
-template<typename KeyType>
+template<typename FieldType>
 struct RemoveResult {
     std::size_t size;
-    std::shared_ptr<KeyType> predecessor;
+    std::shared_ptr<FieldType> predecessor;
 };
 
 

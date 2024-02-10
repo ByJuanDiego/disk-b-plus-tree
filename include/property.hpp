@@ -36,7 +36,7 @@ struct Property {
     std::int32_t SPLIT_POS_DATA_PAGE;
     std::int32_t ROOT_STATUS;
 
-    bool UNIQUE_KEY;
+    bool UNIQUE;
 
     std::string INDEX_FULL_PATH;
     std::string METADATA_FULL_PATH;

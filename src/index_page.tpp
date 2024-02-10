@@ -5,38 +5,38 @@
 #include "index_page.hpp"
 
 
-template <DEFINE_INDEX_TYPE>
-IndexPage<INDEX_TYPE>::IndexPage(BPlusTree<INDEX_TYPE>* tree, bool points_to_leaf)
-    : Page<INDEX_TYPE>(tree), num_keys(0), points_to_leaf(points_to_leaf){
-    keys.resize(max_capacity(), KeyType());
+template <TYPES(typename)>
+IndexPage<TYPES()>::IndexPage(BPlusTree<TYPES()>* tree, bool points_to_leaf)
+    : Page<TYPES()>(tree), num_keys(0), points_to_leaf(points_to_leaf){
+    keys.resize(max_capacity(), FieldType());
     children.resize(max_capacity() + 1, emptyPage);
 }
 
 
-template <DEFINE_INDEX_TYPE>
-IndexPage<INDEX_TYPE>::~IndexPage() = default;
+template <TYPES(typename)>
+IndexPage<TYPES()>::~IndexPage() = default;
 
 
-template <DEFINE_INDEX_TYPE>
-auto IndexPage<INDEX_TYPE>::bytes_len() -> int {
-    return sizeof(std::int32_t) + max_capacity() * sizeof(KeyType) + (max_capacity() + 1) * sizeof(std::int64_t) + sizeof(bool);
+template <TYPES(typename)>
+auto IndexPage<TYPES()>::bytes_len() -> int {
+    return sizeof(std::int32_t) + max_capacity() * sizeof(FieldType) + (max_capacity() + 1) * sizeof(std::int64_t) + sizeof(bool);
 }
 
 
-template <DEFINE_INDEX_TYPE>
-auto IndexPage<INDEX_TYPE>::len() -> std::size_t {
+template <TYPES(typename)>
+auto IndexPage<TYPES()>::len() -> std::size_t {
     return this->num_keys;
 }
 
 
-template<typename KeyType, typename RecordType, typename Greater, typename Index>
-auto IndexPage<KeyType, RecordType, Greater, Index>::max_capacity() -> std::size_t {
+template<typename FieldType, typename RecordType, typename Greater, typename Index>
+auto IndexPage<FieldType, RecordType, Greater, Index>::max_capacity() -> std::size_t {
     return this->tree->properties.MAX_INDEX_PAGE_CAPACITY;
 }
 
 
-template <DEFINE_INDEX_TYPE>
-auto IndexPage<INDEX_TYPE>::write() -> void {
+template <TYPES(typename)>
+auto IndexPage<TYPES()>::write() -> void {
     char* buffer = new char[bytes_len()];
 
     int offset = 0;
@@ -44,8 +44,8 @@ auto IndexPage<INDEX_TYPE>::write() -> void {
     offset += sizeof(std::int32_t);
 
     for (int i = 0; i < max_capacity(); ++i) {
-        memcpy(buffer + offset, (char *)&keys[i], sizeof(KeyType));
-        offset += sizeof(KeyType);
+        memcpy(buffer + offset, (char *)&keys[i], sizeof(FieldType));
+        offset += sizeof(FieldType);
     }
 
     for (int i = 0; i <= max_capacity(); ++i) {
@@ -60,8 +60,8 @@ auto IndexPage<INDEX_TYPE>::write() -> void {
 }
 
 
-template <DEFINE_INDEX_TYPE>
-auto IndexPage<INDEX_TYPE>::read() -> void {
+template <TYPES(typename)>
+auto IndexPage<TYPES()>::read() -> void {
     char* buffer = new char[bytes_len()];
     this->tree->b_plus_index_file.read(buffer, bytes_len());
 
@@ -70,8 +70,8 @@ auto IndexPage<INDEX_TYPE>::read() -> void {
     offset += sizeof(std::int32_t);
 
     for (int i = 0; i < max_capacity(); ++i) {
-        memcpy((char *) &keys[i], buffer + offset, sizeof(KeyType));
-        offset += sizeof(KeyType);
+        memcpy((char *) &keys[i], buffer + offset, sizeof(FieldType));
+        offset += sizeof(FieldType);
     }
 
     for (int i = 0; i <= max_capacity(); ++i) {
@@ -84,10 +84,10 @@ auto IndexPage<INDEX_TYPE>::read() -> void {
 }
 
 
-template <DEFINE_INDEX_TYPE>
-auto IndexPage<INDEX_TYPE>::split(std::int32_t split_pos) -> SplitResult<INDEX_TYPE> {
-    auto new_index_page = std::make_shared<IndexPage<INDEX_TYPE>>(this->tree, points_to_leaf);
-    KeyType new_key = keys[split_pos];
+template <TYPES(typename)>
+auto IndexPage<TYPES()>::split(std::int32_t split_pos) -> SplitResult<TYPES()> {
+    auto new_index_page = std::make_shared<IndexPage<TYPES()>>(this->tree, points_to_leaf);
+    FieldType new_key = keys[split_pos];
 
     for (int i = split_pos + 1; i < num_keys; ++i) {
         new_index_page->push_back(keys[i], children[i + 1]);
@@ -95,18 +95,18 @@ auto IndexPage<INDEX_TYPE>::split(std::int32_t split_pos) -> SplitResult<INDEX_T
     new_index_page->children[0] = children[split_pos + 1];
 
     num_keys -= (new_index_page->num_keys + 1);
-    return SplitResult<INDEX_TYPE> { new_index_page, new_key };
+    return SplitResult<TYPES()> { new_index_page, new_key };
 }
 
 
-template<DEFINE_INDEX_TYPE>
-auto IndexPage<INDEX_TYPE>::balance_page_insert(std::streampos seek_parent,
-                                                IndexPage<KeyType, RecordType, Greater, Index> &parent,
+template<TYPES(typename)>
+auto IndexPage<TYPES()>::balance_page_insert(std::streampos seek_parent,
+                                                IndexPage<TYPES()> &parent,
                                                 std::int32_t child_pos) -> void {
     std::streampos child_seek = parent.children[child_pos];
 
-    SplitResult<INDEX_TYPE> split = this->split(this->tree->properties.SPLIT_POS_INDEX_PAGE);
-    auto new_page = std::dynamic_pointer_cast<IndexPage<INDEX_TYPE>>(split.new_page);
+    SplitResult<TYPES()> split = this->split(this->tree->properties.SPLIT_POS_INDEX_PAGE);
+    auto new_page = std::dynamic_pointer_cast<IndexPage<TYPES()>>(split.new_page);
 
     seek(this->tree->b_plus_index_file, 0, std::ios::end);
     std::streampos new_page_seek = this->tree->b_plus_index_file.tellp();
@@ -121,15 +121,15 @@ auto IndexPage<INDEX_TYPE>::balance_page_insert(std::streampos seek_parent,
 }
 
 
-template<DEFINE_INDEX_TYPE>
-auto IndexPage<INDEX_TYPE>::balance_page_remove(std::streampos seek_parent, IndexPage<INDEX_TYPE>& parent, std::int32_t child_pos) -> void {
+template<TYPES(typename)>
+auto IndexPage<TYPES()>::balance_page_remove(std::streampos seek_parent, IndexPage<TYPES()>& parent, std::int32_t child_pos) -> void {
     std::int32_t minimum = this->tree->properties.MIN_INDEX_PAGE_CAPACITY;
     if (len() >= minimum) {
         return;
     }
 
-    IndexPage<INDEX_TYPE> left_sibling(this->tree);
-    IndexPage<INDEX_TYPE> right_sibling(this->tree);
+    IndexPage<TYPES()> left_sibling(this->tree);
+    IndexPage<TYPES()> right_sibling(this->tree);
 
     if (child_pos > 0) {
         std::streampos seek_left_sibling = parent.children[child_pos - 1];
@@ -187,17 +187,17 @@ auto IndexPage<INDEX_TYPE>::balance_page_remove(std::streampos seek_parent, Inde
 }
 
 
-template<DEFINE_INDEX_TYPE>
-auto IndexPage<INDEX_TYPE>::balance_root_insert(std::streampos old_root_seek) -> void {
-    SplitResult<INDEX_TYPE> split = this->split(this->tree->properties.SPLIT_POS_INDEX_PAGE);
-    auto new_page = std::dynamic_pointer_cast<IndexPage<INDEX_TYPE>>(split.new_page);
+template<TYPES(typename)>
+auto IndexPage<TYPES()>::balance_root_insert(std::streampos old_root_seek) -> void {
+    SplitResult<TYPES()> split = this->split(this->tree->properties.SPLIT_POS_INDEX_PAGE);
+    auto new_page = std::dynamic_pointer_cast<IndexPage<TYPES()>>(split.new_page);
     seek(this->tree->b_plus_index_file, 0, std::ios::end);
     std::streampos new_page_seek = this->tree->b_plus_index_file.tellp();
     new_page->write();
 
     this->save(old_root_seek);
 
-    IndexPage<INDEX_TYPE> new_root(this->tree, false);
+    IndexPage<TYPES()> new_root(this->tree, false);
     new_root.num_keys = 1;
     new_root.keys[0] = split.split_key;
     new_root.children[0] = old_root_seek;
@@ -211,8 +211,8 @@ auto IndexPage<INDEX_TYPE>::balance_root_insert(std::streampos old_root_seek) ->
 }
 
 
-template<DEFINE_INDEX_TYPE>
-auto IndexPage<INDEX_TYPE>::balance_root_remove() -> void {
+template<TYPES(typename)>
+auto IndexPage<TYPES()>::balance_root_remove() -> void {
     if (this->is_empty()) {
         this->tree->properties.SEEK_ROOT = children[0];
 
@@ -223,8 +223,8 @@ auto IndexPage<INDEX_TYPE>::balance_root_remove() -> void {
 }
 
 
-template <DEFINE_INDEX_TYPE>
-auto IndexPage<INDEX_TYPE>::push_front(KeyType& key, std::streampos child) -> void {
+template <TYPES(typename)>
+auto IndexPage<TYPES()>::push_front(FieldType& key, std::streampos child) -> void {
     if (this->is_full()) {
         throw FullPage();
     }
@@ -243,8 +243,8 @@ auto IndexPage<INDEX_TYPE>::push_front(KeyType& key, std::streampos child) -> vo
 }
 
 
-template <DEFINE_INDEX_TYPE>
-auto IndexPage<INDEX_TYPE>::push_back(KeyType &key, std::streampos child) -> void {
+template <TYPES(typename)>
+auto IndexPage<TYPES()>::push_back(FieldType &key, std::streampos child) -> void {
     if (this->is_full()) {
         throw FullPage();
     }
@@ -255,13 +255,13 @@ auto IndexPage<INDEX_TYPE>::push_back(KeyType &key, std::streampos child) -> voi
 }
 
 
-template <DEFINE_INDEX_TYPE>
-auto IndexPage<INDEX_TYPE>::pop_front() -> std::pair<KeyType, std::streampos> {
+template <TYPES(typename)>
+auto IndexPage<TYPES()>::pop_front() -> std::pair<FieldType, std::streampos> {
     if (this->is_empty()) {
         throw EmptyPage();
     }
 
-    KeyType key = keys[0];
+    FieldType key = keys[0];
     for (std::int32_t i = 0; i < len() - 1; ++i) {
         keys[i] = keys[i + 1];
     }
@@ -276,8 +276,8 @@ auto IndexPage<INDEX_TYPE>::pop_front() -> std::pair<KeyType, std::streampos> {
 }
 
 
-template <DEFINE_INDEX_TYPE>
-auto IndexPage<INDEX_TYPE>::pop_back() -> std::pair<KeyType, std::streampos> {
+template <TYPES(typename)>
+auto IndexPage<TYPES()>::pop_back() -> std::pair<FieldType, std::streampos> {
     if (this->is_empty()) {
         throw EmptyPage();
     }
@@ -287,8 +287,8 @@ auto IndexPage<INDEX_TYPE>::pop_back() -> std::pair<KeyType, std::streampos> {
 }
 
 
-template <DEFINE_INDEX_TYPE>
-auto IndexPage<INDEX_TYPE>::reallocate_references_after_split(std::int32_t child_pos, KeyType& new_key, std::streampos new_page_seek) -> void {
+template <TYPES(typename)>
+auto IndexPage<TYPES()>::reallocate_references_after_split(std::int32_t child_pos, FieldType& new_key, std::streampos new_page_seek) -> void {
     for (int i = len(); i > child_pos; --i) {
         keys[i] = keys[i - 1];
         children[i + 1] = children[i];
@@ -300,8 +300,8 @@ auto IndexPage<INDEX_TYPE>::reallocate_references_after_split(std::int32_t child
 }
 
 
-template<DEFINE_INDEX_TYPE>
-auto IndexPage<INDEX_TYPE>::reallocate_references_after_merge(std::int32_t merged_child_pos) -> void {
+template<TYPES(typename)>
+auto IndexPage<TYPES()>::reallocate_references_after_merge(std::int32_t merged_child_pos) -> void {
     for (std::int32_t i = merged_child_pos; i < len() - 1; ++i) {
         keys[i] = keys[i + 1];
         children[i + 1] = children[i + 2];
@@ -310,8 +310,8 @@ auto IndexPage<INDEX_TYPE>::reallocate_references_after_merge(std::int32_t merge
 }
 
 
-template<DEFINE_INDEX_TYPE>
-auto IndexPage<INDEX_TYPE>::merge(IndexPage<INDEX_TYPE> &right_sibling, KeyType& new_key) -> void {
+template<TYPES(typename)>
+auto IndexPage<TYPES()>::merge(IndexPage<TYPES()> &right_sibling, FieldType& new_key) -> void {
     push_back(new_key, right_sibling.children[0]);
     for (std::int32_t i = 0; i < right_sibling.len(); ++i) {
         push_back(right_sibling.keys[i], right_sibling.children[i + 1]);
@@ -319,10 +319,10 @@ auto IndexPage<INDEX_TYPE>::merge(IndexPage<INDEX_TYPE> &right_sibling, KeyType&
 }
 
 
-template <typename KeyType>
+template <typename FieldType>
 auto get_expected_index_page_capacity() -> std::int32_t {
     return std::floor(
             static_cast<double>(get_buffer_size() - sizeof(std::int32_t) - sizeof(std::int64_t) - sizeof(bool))  /
-            (sizeof(std::int64_t) + sizeof(KeyType))
+            (sizeof(std::int64_t) + sizeof(FieldType))
     );
 }

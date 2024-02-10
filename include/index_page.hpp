@@ -18,15 +18,15 @@
 #include "error_handler.hpp"
 
 
-template<DEFINE_INDEX_TYPE>
-struct IndexPage : public Page<INDEX_TYPE> {
+template<TYPES(typename)>
+struct IndexPage : public Page<TYPES()> {
 
     std::int32_t num_keys;
-    std::vector<KeyType> keys;
+    std::vector<FieldType> keys;
     std::vector<std::int64_t> children;
     bool points_to_leaf;
 
-    explicit IndexPage(BPlusTree<INDEX_TYPE> *tree, bool points_to_leaf = true);
+    explicit IndexPage(BPlusTree<TYPES()> *tree, bool points_to_leaf = true);
 
     ~IndexPage();
 
@@ -40,41 +40,41 @@ struct IndexPage : public Page<INDEX_TYPE> {
 
     auto max_capacity() -> std::size_t override;
 
-    auto split(std::int32_t split_pos) -> SplitResult<INDEX_TYPE> override;
+    auto split(std::int32_t split_pos) -> SplitResult<TYPES()> override;
 
     auto balance_page_insert(
             std::streampos seek_parent,
-            IndexPage<INDEX_TYPE> &parent,
+            IndexPage<TYPES()> &parent,
             std::int32_t child_pos) -> void override;
 
     auto balance_page_remove(
             std::streampos seek_parent,
-            IndexPage<INDEX_TYPE> &parent,
+            IndexPage<TYPES()> &parent,
             std::int32_t child_pos) -> void override;
 
     auto balance_root_insert(std::streampos old_root_seek) -> void override;
 
     auto balance_root_remove() -> void override;
 
-    auto push_front(KeyType &key, std::streampos child) -> void;
+    auto push_front(FieldType &key, std::streampos child) -> void;
 
-    auto push_back(KeyType &key, std::streampos child) -> void;
+    auto push_back(FieldType &key, std::streampos child) -> void;
 
-    auto pop_front() -> std::pair<KeyType, std::streampos>;
+    auto pop_front() -> std::pair<FieldType, std::streampos>;
 
-    auto pop_back() -> std::pair<KeyType, std::streampos>;
+    auto pop_back() -> std::pair<FieldType, std::streampos>;
 
     auto reallocate_references_after_split(std::int32_t child_pos,
-                                           KeyType &new_key,
+                                           FieldType &new_key,
                                            std::streampos new_page_seek) -> void;
 
     auto reallocate_references_after_merge(std::int32_t merged_child_pos) -> void;
 
-    auto merge(IndexPage<INDEX_TYPE> &right_sibling, KeyType &new_key) -> void;
+    auto merge(IndexPage<TYPES()> &right_sibling, FieldType &new_key) -> void;
 };
 
 
-template<typename KeyType>
+template<typename FieldType>
 auto get_expected_index_page_capacity() -> std::int32_t;
 
 
