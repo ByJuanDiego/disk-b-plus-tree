@@ -26,7 +26,7 @@ The structure of the _internal nodes_ of a B+ tree with _index page capacity_ $M
  - For all _key values_ $X$ in the subtree pointed by $P_{i}$, we have that:
    - $K_{i-1} \lt X \lt K_{i}$ for $1 \lt i \lt q$
    - $X \lt K_{i}$ for $i = 1$
-   - $K_{i-1} \lt X$ for $i = M$
+   - $K_{i-1} \lt X$ for $i = q$
 
  
  - Each internal node has at least $\lceil \frac{M}{2} \rceil$ _children_ and at most $M$ _children_. The _root node_ has at least two _children_ if it is an _internal node_.
@@ -37,7 +37,7 @@ The structure of the _leaf nodes_ of a B+ tree with _data page capacity_ $N$ is 
 
  - Within each _leaf node_ we have that $K(R_{1}) < K(R_{2}) < ... < K(R_{q})$.
 
- - Each leaf node has at least $\lceil \frac{N}{2} \rceil$ _records_ and at most $N$ _records_. The _root node_ may have less than $\lceil \frac{N}{2} \rceil$ _records_ if it is the only node in the tree and only the _root node_ has this exception.
+ - Each leaf node has at least $(\lceil \frac{N}{2} \rceil - 1)$ _records_ and at most $N$ _records_. The _root node_ may have less than $(\lceil \frac{N}{2} \rceil - 1)$ _records_ if it is the only node in the tree and only the _root node_ has this exception.
    
  - All _leaf nodes_ are at the same level.
 
